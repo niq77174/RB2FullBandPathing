@@ -9,6 +9,9 @@ public class SongInfo {
     private ArrayList< BeatInfo > beats;
 
     public final static int SUBBEATS_PER_BEAT = 2 ; // will be larger for some songs
+    public final static int OVERDRIVE_PHRASE = 8 * SUBBEATS_PER_BEAT; 
+    public final static int OVERDRIVE_HALFBAR = 2 * OVERDRIVE_PHRASE;
+    public final static int OVERDRIVE_FULLBAR = 4 * OVERDRIVE_PHRASE;
 
     // not always song-level data :/
     byte beatsPerMeasure;
@@ -45,8 +48,9 @@ public class SongInfo {
         for (BeatInfo currentBeat : this.beats) {
             for (int i = 0; i < 4; ++i) {
                 currentBeat.maximumOverDriveBar[i] = currentMaximumOverdrive[i];
-                currentMaximumOverdrive[i] += currentBeat.hasLastBeatOfInstrumentOverDrive[i] ? 8 * SongInfo.SUBBEATS_PER_BEAT : 0;
-                currentMaximumOverdrive[i] += currentBeat.hasLastBeatOfUnisonBonus ? 8 * SongInfo.SUBBEATS_PER_BEAT : 0;
+                currentMaximumOverdrive[i] +=
+                    currentBeat.hasLastBeatOfInstrumentOverDrive[i] ?  OVERDRIVE_PHRASE : 0;
+                currentMaximumOverdrive[i] += currentBeat.hasLastBeatOfUnisonBonus ? OVERDRIVE_PHRASE: 0;
             }
 
             currentGuitarWhammy += 1.1 * currentBeat.guitarWhammy;
@@ -57,9 +61,10 @@ public class SongInfo {
             currentMaximumOverdrive[Instrument.BASS.index()] += Math.floor(currentGuitarWhammy);
             currentBassWhammy -= Math.floor(currentBassWhammy);
 
+            Util.truncateOverdriveMeters(currentMaximumOverdrive);
             for (int i = 0; i < 4; ++i) {
                 currentMaximumOverdrive[i] =
-                    (short) Math.min(currentMaximumOverdrive[i], 32*SongInfo.SUBBEATS_PER_BEAT);
+                    (short) Math.min(currentMaximumOverdrive[i], OVERDRIVE_FULLBAR);
             }
         }
     }
@@ -124,7 +129,7 @@ public class SongInfo {
         // activations will make this number larger). For vocals, verses and
         // chorus are usually unable to activate more than half the time. But
         // sometimes there are long sections with no singing or taps. Assume it
-        // averages out to 33 vocal states, we're looking abstract 20M states
+        // averages out to 33 vocal states, we're probably near 20M states
         // per beat
 
     }

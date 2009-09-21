@@ -25,8 +25,53 @@ public class BeatInfo {
         this.instrumentCanActivate[Instrument.BASS.index()] = true;
 
         this.maximumOverDriveBar = new short[Instrument.INSTRUMENT_COUNT.index()];
-        this.isReachableDrumState = new boolean[32 * SongInfo.SUBBEATS_PER_BEAT + 1];
-        this.isReachableVocalState = new boolean[32 * SongInfo.SUBBEATS_PER_BEAT + 1];
+        this.isReachableDrumState = new boolean[SongInfo.OVERDRIVE_FULLBAR];
+        this.isReachableVocalState = new boolean[SongInfo.OVERDRIVE_FULLBAR];
+    }
+
+    public boolean instrumentCanActivate(int instrumentIndex,
+                                         BandState bandState) {
+        return ((this.instrumentCanActivate[instrumentIndex]) && 
+                (bandState.instrumentMeter[instrumentIndex] > SongInfo.OVERDRIVE_HALFBAR));
+    }
+
+    public short getBeatScoreForBandState(BandState bandState) {
+        short result = this.score;
+
+        if (this.instrumentCanActivate(Instrument.DRUMS.index(), bandState) &&
+            !bandState.instrumentInOverdrive[Instrument.DRUMS().index()) {
+            result -= this.drumScore;
+        }
+
+        int instrumentsInOverdrive = 0;
+        for (int i = 0; i < 4; ++i) {
+            instrumentsIn += bandState.instrumentInOverdrive[i]? 1 : 0;
+        }
+
+        short multiplier = 0;
+        switch (instrumentInOverdrive) {
+            case 0:
+                multiplier = 1;
+                break;
+            case 1:
+                multiplier = 2;
+                break;
+            case 2:
+                multiplier = 4;
+                break;
+            case 3:
+                multiplier = 6;
+                break;
+            case 4:
+                multiplier = 8;
+                break;
+            default:
+                // EPIC FAIL
+                // assert(false, "more than 4 instruments in overdrive"
+                break;
+        }
+
+        return result * multiplier;
     }
 
     public static BeatInfo fromPathStats(short beatNumber,

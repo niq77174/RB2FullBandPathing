@@ -10,13 +10,14 @@ public class ScoredBeat implements Serializable {
     private HashMap< Integer, ScoredBandState > bandStates;
 
     private ScoredBeat() {
-        this.bandStates = new HashMap< Integer, BandState >();
+        this.bandStates = new HashMap< Integer, ScoredBandState >();
     }
 
     public void addNewScore(BandState bandState, int score) {
     }
 
     public int findBestScore(Collection< BandState > nextBandStates) {
+        return 0; // TODO
     }
 
     public void findBandStatesByScore(int score) {
@@ -25,6 +26,7 @@ public class ScoredBeat implements Serializable {
     public void writeToFile(String fileName) {
     }
 
-    public static ScoredBeat readFromFile {
+    public static ScoredBeat readFromFile(String fileName) {
+        return null;
     }
 }

@@ -25,14 +25,14 @@ public class BandState {
         for (BandState bandState : result) {
             for (int i = 0; i < 4; ++i) {
                 if (currentBeat.hasLastBeatOfInstrumentOverDrive[i]) {
-                    bandState.instrumentMeter[i] += 8 * SongInfo.SUBBEATS_PER_BEAT;
+                    bandState.instrumentMeter[i] += SongInfo.OVERDRIVE_PHRASE;
                 }
             }
 
             if (currentBeat.hasLastBeatOfUnisonBonus) {
-                bandState.instrumentMeter[Instrument.GUITAR.index()] += 8 * SongInfo.SUBBEATS_PER_BEAT;
-                bandState.instrumentMeter[Instrument.DRUMS.index()] += 8 * SongInfo.SUBBEATS_PER_BEAT;
-                bandState.instrumentMeter[Instrument.BASS.index()] += 8 * SongInfo.SUBBEATS_PER_BEAT;
+                bandState.instrumentMeter[Instrument.GUITAR.index()] += SongInfo.OVERDRIVE_PHRASE;
+                bandState.instrumentMeter[Instrument.DRUMS.index()] += SongInfo.OVERDRIVE_PHRASE;
+                bandState.instrumentMeter[Instrument.BASS.index()] += SongInfo.OVERDRIVE_PHRASE;
             }
         }
 
@@ -81,10 +81,10 @@ public class BandState {
                     if (0 == bandState.instrumentMeter[i]) {
                         bandState.instrumentInOverdrive[i] = false;
                     }
-                    bandState.instrumentMeter[i] =
-                        (short) Math.min(bandState.instrumentMeter[i], 32*SongInfo.SUBBEATS_PER_BEAT);
                 }
             }
+
+            Util.truncateOverdriveMeters(bandState.instrumentMeter);
         }
 
         // time to check who can activate!
@@ -93,7 +93,7 @@ public class BandState {
         for (BandState bandState : result) {
             for (int i = 0; i < 4; ++i) {
                 ArrayList< BandState > tmp = new ArrayList< BandState >(finalResult);
-                if (nextBeat.instrumentCanActivate[i] && bandState.instrumentMeter[i] > 16*SongInfo.SUBBEATS_PER_BEAT) {
+                if (nextBeat.instrumentCanActivate(i, bandState)) {
                     for (BandState tmpBandState : tmp) {
                         BandState newBandState = (BandState) tmpBandState.clone();
                         newBandState.instrumentInOverdrive[i] = true;
@@ -112,5 +112,9 @@ public class BandState {
 
         // assert(result.size()) <= 64
         bandStates.addAll(result);
+    }
+
+    private static BandState fromSerializedData(int value) {
+        return null; // TODO
     }
 }

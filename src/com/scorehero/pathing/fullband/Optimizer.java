@@ -1,14 +1,12 @@
 package com.scorehero.pathing.fullband;
 
-import java.util.Sqeunce;
+import java.util.Collection;
 
 public class Optimizer {
     public Optimizer() {
     }
 
-    public Sequence optimize(SongInfo songInfo, 
-                             Sequence< BandState > bandStates) {
-
-        return null;
+    public void optimize(SongInfo songInfo, 
+                             Collection< BandState > bandStates) {
     }
 }
