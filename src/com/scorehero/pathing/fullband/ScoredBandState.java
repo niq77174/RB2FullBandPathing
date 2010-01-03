@@ -13,5 +13,13 @@ public class ScoredBandState implements Serializable {
     public ScoredBandState(BandState bandState, int score) {
     }
 
+    public int score() {
+        return this.score;
+    }
+
+    public BandState bandState() {
+        return this.bandState;
+    }
+
     // seralization TODO
 }

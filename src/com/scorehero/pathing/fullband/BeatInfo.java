@@ -39,39 +39,28 @@ public class BeatInfo {
         short result = this.score;
 
         if (this.instrumentCanActivate(Instrument.DRUMS.index(), bandState) &&
-            !bandState.instrumentInOverdrive[Instrument.DRUMS().index()) {
+            !bandState.instrumentInOverdrive[Instrument.DRUMS.index()]) {
             result -= this.drumScore;
         }
 
         int instrumentsInOverdrive = 0;
         for (int i = 0; i < 4; ++i) {
-            instrumentsIn += bandState.instrumentInOverdrive[i]? 1 : 0;
+            instrumentsInOverdrive += bandState.instrumentInOverdrive[i]? 1 : 0;
         }
 
-        short multiplier = 0;
-        switch (instrumentInOverdrive) {
-            case 0:
-                multiplier = 1;
-                break;
-            case 1:
-                multiplier = 2;
-                break;
-            case 2:
-                multiplier = 4;
-                break;
-            case 3:
-                multiplier = 6;
-                break;
-            case 4:
-                multiplier = 8;
-                break;
-            default:
-                // EPIC FAIL
-                // assert(false, "more than 4 instruments in overdrive"
-                break;
-        }
+        // this is devious.
+        // The first tirm here is straight forward. Just 2x # instruments
+        // The second term is a 0-1 variable that is 0 if and only if
+        // instruments == 0. So with nothing in overdrive, it reduces to
+        //      0 + 1 = 1
+        // But for all other cases it reduces to
+        //      2 * N + 0 == 2* N
 
-        return result * multiplier;
+        // assert(instruments <=4, "more than 4 instruments in overdrive");
+        short multiplier = (short)
+            (2*instrumentsInOverdrive + (1-(instrumentsInOverdrive+2)/3));
+
+        return (short) (result * multiplier);
     }
 
     public static BeatInfo fromPathStats(short beatNumber,
@@ -85,8 +74,8 @@ public class BeatInfo {
         result.measureNumber = (short) parsedBeatNumber;
         result.beatWithinMeasure = parsedBeatNumber - ((double) result.measureNumber);
 
-        tok.nextToken(); // skip the beat count
-        tok.nextToken(); // skip the OD notes
+        String dummy1 = tok.nextToken(); // skip the beat count
+        String dummy2 = tok.nextToken(); // skip the OD notes
         result.score = Short.valueOf(tok.nextToken()).shortValue();
         result.drumScore = Short.valueOf(tok.nextToken()).shortValue();
 

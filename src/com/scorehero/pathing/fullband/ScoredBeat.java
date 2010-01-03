@@ -7,20 +7,40 @@ import java.util.HashMap;
 import java.util.Collection;
 
 public class ScoredBeat implements Serializable {
-    private HashMap< Integer, ScoredBandState > bandStates;
+    private HashMap< Integer, ScoredBandState > scoredBandStateMap;
 
     private ScoredBeat() {
-        this.bandStates = new HashMap< Integer, ScoredBandState >();
+        this.scoredBandStateMap = new HashMap< Integer, ScoredBandState >();
     }
 
     public void addNewScore(BandState bandState, int score) {
+        this.scoredBandStateMap.put(new Integer(bandState.serializedData()),
+                                    new ScoredBandState(bandState, score));
     }
 
     public int findBestScore(Collection< BandState > nextBandStates) {
-        return 0; // TODO
+        int result = 0;
+
+        for (BandState bandState : nextBandStates) {
+            ScoredBandState scoredBandState = 
+                scoredBandStateMap.get(bandState.serializedData());
+            if (null == scoredBandState) {
+                // ruh-roh! This should never happen.
+                continue;
+            }
+            result = Math.max(result, scoredBandState.score());
+        }
+
+        return result;
     }
 
-    public void findBandStatesByScore(int score) {
+    public void findBandStatesByScore(final int score, 
+                                      Collection< BandState > result) {
+        for (ScoredBandState scoredBandState : this.scoredBandStateMap.values()) {
+            if (scoredBandState.score() == score) {
+                result.add(scoredBandState.bandState());
+            }
+        }
     }
 
     public void writeToFile(String fileName) {

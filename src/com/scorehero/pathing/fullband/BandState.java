@@ -114,7 +114,11 @@ public class BandState {
         bandStates.addAll(result);
     }
 
-    private static BandState fromSerializedData(int value) {
+    public int serializedData() {
+        return 0;
+    }
+
+    public  static BandState fromSerializedData(int value) {
         return null; // TODO
     }
 }
