@@ -4,152 +4,60 @@ import java.util.Collection;
 import java.util.ArrayList;
 
 public class BandState implements Cloneable {
-    private double guitarWhammyPartialBeat; // between 0.0 and 1.0;
-    private double bassWhammyPartialBeat; // between 0.0 and 1.0;
-    private short instrumentMeter[];
+    private byte instrumentMeter[];
     private boolean instrumentInOverdrive[];
+    public final static BandState INITIAL_BANDSTATE = buildInitialBandState();
+
+    private static BandState buildInitialBandState() {
+        BandState result = new BandState();
+        result.instrumentInOverdrive[0] = result.instrumentInOverdrive[1] = result.instrumentInOverdrive[2] = result.instrumentInOverdrive[3] = false;
+        result.instrumentMeter[0] = result.instrumentMeter[1] = result.instrumentMeter[2] = result.instrumentMeter[3];
+        return result;
+    }
 
     public BandState() {
         this.instrumentInOverdrive = new boolean[Instrument.INSTRUMENT_COUNT.index()];
-        this.instrumentMeter = new short[Instrument.INSTRUMENT_COUNT.index()];
-    }
-
-    // this logic should really go in the SongInfo class,
-    public void computeReachableStatesForNextBeat(SongInfo songInfo,
-                                                  int currentBeatIndex,
-                                                  Collection< BandState > bandStates) throws Exception {
-        BeatInfo currentBeat = songInfo.beats().get(currentBeatIndex);
-        ArrayList< BandState > result = new ArrayList< BandState >();
-        result.add((BandState) this.clone());
-
-        // add on any overdrive for this measure
-        for (BandState bandState : result) {
-            for (int i = 0; i < Instrument.INSTRUMENT_COUNT.index(); ++i) {
-                if (currentBeat.hasLastBeatOfInstrumentOverdrive[i]) {
-                    bandState.instrumentMeter[i] += SongInfo.OVERDRIVE_PHRASE;
-                }
-            }
-
-            if (currentBeat.hasLastBeatOfUnisonBonus) {
-                bandState.instrumentMeter[Instrument.GUITAR.index()] += SongInfo.OVERDRIVE_PHRASE;
-                bandState.instrumentMeter[Instrument.DRUMS.index()] += SongInfo.OVERDRIVE_PHRASE;
-                bandState.instrumentMeter[Instrument.BASS.index()] += SongInfo.OVERDRIVE_PHRASE;
-            }
-        }
-
-        double beatGuitarWhammy = 1.088 * currentBeat.guitarWhammy;
-        
-        // guitar: to whammy? or not to whammy?
-        if (beatGuitarWhammy > 0.0) {
-            ArrayList< BandState > tmp = new ArrayList< BandState >(result);
-            for (BandState bandState : tmp) {
-                BandState newBandState = (BandState) bandState.clone();
-                newBandState.guitarWhammyPartialBeat += 
-                    beatGuitarWhammy;
-                newBandState.instrumentMeter[Instrument.GUITAR.index()] += 
-                    Math.floor(newBandState.guitarWhammyPartialBeat);
-                newBandState.guitarWhammyPartialBeat -= 
-                    Math.floor(newBandState.guitarWhammyPartialBeat);
-                result.add(newBandState);
-            }
-        }
-        // assert(result.size()) <= 2
-
-        double beatBassWhammy = 1.088 * currentBeat.bassWhammy;
-        // bass: to whammy? or not to whammy?
-        if (beatBassWhammy > 0.0) {
-            ArrayList< BandState > tmp = new ArrayList< BandState >(result);
-            for (BandState bandState : tmp) {
-                BandState newBandState = (BandState) bandState.clone();
-                newBandState.bassWhammyPartialBeat += 
-                    beatBassWhammy;
-                newBandState.instrumentMeter[Instrument.BASS.index()] += 
-                    Math.floor(newBandState.bassWhammyPartialBeat);
-                newBandState.bassWhammyPartialBeat -= 
-                    Math.floor(newBandState.bassWhammyPartialBeat);
-                result.add(newBandState);
-            }
-        }
-        // assert(result.size()) <= 4
-
-        // decrement the OD meter for every instrument that is in overdrive
-        // also cap overdrive meter to 32*subbeats/beat
-        for (BandState bandState : result) {
-            for (int i = 0; i < 4; ++i) {
-                if (bandState.instrumentInOverdrive[i]) {
-                    // check for partial beats, &c.
-                    bandState.instrumentMeter[i]--;
-                    if (0 == bandState.instrumentMeter[i]) {
-                        bandState.instrumentInOverdrive[i] = false;
-                    }
-                }
-            }
-
-            Util.truncateOverdriveMeters(bandState.instrumentMeter);
-        }
-
-        // time to check who can activate!
-        ArrayList< BandState > finalResult = new ArrayList< BandState >(result);
-        BeatInfo nextBeat = songInfo.beats().get(currentBeatIndex+1);
-        for (BandState bandState : result) {
-            for (int i = 0; i < 4; ++i) {
-                ArrayList< BandState > tmp = new ArrayList< BandState >(finalResult);
-                if (nextBeat.instrumentCanActivate(i, bandState)) {
-                    for (BandState tmpBandState : tmp) {
-                        BandState newBandState = (BandState) tmpBandState.clone();
-                        newBandState.instrumentInOverdrive[i] = true;
-
-                        if (Instrument.GUITAR.index() == i) {
-                            newBandState.guitarWhammyPartialBeat = 0.0;
-                        }
-                        if (Instrument.BASS.index() == i) {
-                            newBandState.bassWhammyPartialBeat = 0.0;
-                        }
-                        finalResult.add(newBandState);
-                    }
-                }
-            }
-        }
-
-        // assert(result.size()) <= 64
-        bandStates.addAll(result);
+        this.instrumentMeter = new byte[Instrument.INSTRUMENT_COUNT.index()];
     }
 
     public int serializedData() {
-        return 0; //
+        int result = 0;
+        for (int i = 0; i < instrumentMeter.length; ++i) {
+            result <<= 7;
+            result |= instrumentMeter[i] & 0x7f;
+        }
+        for (int i = 0; i < instrumentInOverdrive.length; ++i) {
+            result <<= 1;
+            result |= instrumentInOverdrive[i] ? 1 : 0;
+        }
+
+        return result;
     }
 
-    public  static BandState fromSerializedData(int value) {
+    public static BandState fromSerializedData(int value) {
         return null; // TODO
     }
 
     public void applyWhammy(Instrument instrument, BeatInfo beatInfo) {
+        this.instrumentMeter[instrument.index()] += beatInfo.getWhammy(instrument);
     }
 
     public boolean canSqueeze(Instrument instrument, BeatInfo beatInfo) {
-        return false;
+        return (1 == instrumentMeter[instrument.index()] && beatInfo.hasSqueezeAvailable(instrument));
     }
 
-    public void whammyGuitar() {
-        this.guitarWhammyPartialBeat += 1.088;
-        this.instrumentMeter[Instrument.GUITAR.index()] += Math.floor(this.guitarWhammyPartialBeat);
-        this.guitarWhammyPartialBeat -= Math.floor(this.guitarWhammyPartialBeat);
-        //assert(this.guitarWhammyPartialBeat < 1.0)
-    }
-
-    public void whammyBass() {
-        this.bassWhammyPartialBeat += 1.088;
-        this.instrumentMeter[Instrument.BASS.index()] += Math.floor(this.bassWhammyPartialBeat);
-        this.bassWhammyPartialBeat -= Math.floor(this.bassWhammyPartialBeat);
-        //assert(this.bassWhammyPartialBeat < 1.0)
-    }
 
     public void advanceActivatedInstruments(BeatInfo beatInfo, boolean squeezeDrums) {
         for (int i = 0; i < this.instrumentMeter.length; ++i) {
             if (this.instrumentInOverdrive(i)) {
                 --this.instrumentMeter[i];
+                if (0 == this.instrumentMeter[i]) {
+                    this.instrumentInOverdrive[i] = false;
+                }
             }
         }
+
+        Util.truncateOverdriveMeters(this.instrumentMeter);
     }
 
     public void activateInstrument(int instrument) {
@@ -157,9 +65,9 @@ public class BandState implements Cloneable {
     }
 
     public void acquireUnisonBonus() {
-        this.instrumentMeter[Instrument.GUITAR.index()] += SongInfo.OVERDRIVE_PHRASE;
-        this.instrumentMeter[Instrument.BASS.index()] += SongInfo.OVERDRIVE_PHRASE;
-        this.instrumentMeter[Instrument.DRUMS.index()] += SongInfo.OVERDRIVE_PHRASE;
+        this.acquireOverdrive(Instrument.GUITAR);
+        this.acquireOverdrive(Instrument.BASS);
+        this.acquireOverdrive(Instrument.DRUMS);
     }
 
     public void drainOverdrive(Instrument instrument) {
@@ -167,12 +75,23 @@ public class BandState implements Cloneable {
         //assert(this.instrumentMeter[instrumentMeter.index()] > 0);
     }
 
-    public void acquireInstrumentOverdrive(Instrument instrument) {
+    public void acquireOverdrive(Instrument instrument) {
+        this.acquireOverdrive(instrument.index());
+    }
+
+    public void acquireOverdrive(int instrument) {
+        this.instrumentMeter[instrument] += SongInfo.OVERDRIVE_PHRASE;
     }
 
     public String toString() {
         StringBuilder result = new StringBuilder();
-        result.append("BandState: Instrument Meter: ");
+        result.append("BandState: ");
+        String binaryString = Integer.toBinaryString(this.serializedData());
+        for (int i = 0; i < (32 - binaryString.length()); ++i) {
+            result.append("0");
+        }
+        result.append(binaryString);
+        result.append("\n Instrument Meter: ");
         result.append("Guitar: " + instrumentMeter[Instrument.GUITAR.index()]);
         result.append(", Drums: " + instrumentMeter[Instrument.DRUMS.index()]);
         result.append(", Vocals: " + instrumentMeter[Instrument.VOCALS.index()]);
@@ -189,16 +108,28 @@ public class BandState implements Cloneable {
         this.instrumentInOverdrive[instrument] = value;
     }
 
-    public void setInstrumentMeter(int instrument, short value) {
+    public void setInstrumentMeter(int instrument, byte value) {
         this.instrumentMeter[instrument] = value;
     }
 
-    public int getInstrumentMeter(int instrument) {
+    public short getInstrumentMeter(int instrument) {
         return this.instrumentMeter[instrument];
+    }
+
+    public short getInstrumentMeter(Instrument instrument) {
+        return this.getInstrumentMeter(instrument.index());
     }
 
     public boolean instrumentInOverdrive(int instrument) {
         return this.instrumentInOverdrive[instrument];
+    }
+
+    public boolean instrumentInOverdrive(Instrument instrument) {
+        return this.instrumentInOverdrive(instrument.index());
+    }
+
+    public boolean instrumentCanActivate(Instrument instrument) {
+        return (!this.instrumentInOverdrive(instrument) && this.getInstrumentMeter(instrument) >= SongInfo.OVERDRIVE_HALFBAR);
     }
 
     public Object clone() throws CloneNotSupportedException {

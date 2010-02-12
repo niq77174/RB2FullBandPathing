@@ -2,9 +2,9 @@ package com.scorehero.pathing.fullband;
 
 public enum Instrument {
     GUITAR (0),
-    BASS (1),
-    DRUMS (2),
-    VOCALS (3),
+    DRUMS (1),
+    VOCALS (2),
+    BASS (3),
     INSTRUMENT_COUNT (4);
 
     private int index;

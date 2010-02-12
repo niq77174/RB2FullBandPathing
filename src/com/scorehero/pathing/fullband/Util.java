@@ -1,13 +1,36 @@
 package com.scorehero.pathing.fullband;
 
 public class Util {
-    private static short truncateOverdriveMeter(short overdriveMeter) {
-        return (short) Math.min(overdriveMeter, SongInfo.OVERDRIVE_FULLBAR);
+    private static byte truncateOverdriveMeter(byte overdriveMeter) {
+        return (byte) Math.min(overdriveMeter, SongInfo.OVERDRIVE_FULLBAR);
     }
 
-    public static void truncateOverdriveMeters(short overdriveMeter[]) {
+    public static void truncateOverdriveMeters(byte overdriveMeter[]) {
         for (int i = 0; i < overdriveMeter.length; ++i) {
             overdriveMeter[i] = Util.truncateOverdriveMeter(overdriveMeter[i]);
         }
+    }
+
+    public static byte[] toByteArray(int n) {
+        byte[] result = new byte[4];
+        Util.toByteArray(n, result);
+        return result;
+    }
+
+    public static void toByteArray(int n, byte[] result) {
+        result[0] = (byte) (n & 0xff);
+        result[1] = (byte) ((n >>> 8) & 0xff);
+        result[2] = (byte) ((n >>> 16) & 0xff);
+        result[3] = (byte) ((n >>> 24) & 0xff);
+    }
+
+    public static int toInteger(byte[] byteArray) {
+        int result = 0;
+        result |= byteArray[0];
+        result |= (byteArray[1] << 8);
+        result |= (byteArray[2] << 16);
+        result |= (byteArray[3] << 24);
+
+        return result;
     }
 }
