@@ -21,7 +21,7 @@ public class BeatInfo implements Cloneable {
         byte maximumOverdriveBar[] = new byte[Instrument.INSTRUMENT_COUNT.index()];
         byte whammy[] = new byte[Instrument.INSTRUMENT_COUNT.index()];
         boolean isDrumFill;
-        boolean hasUnisonBonusPhraseEnd;
+        boolean hasLastBeatOfUnisonBonus;
 
     public BeatInfo() {
         this(0,0);
@@ -149,6 +149,10 @@ public class BeatInfo implements Cloneable {
 
     public boolean hasLastOverdriveNote(Instrument instrument) {
         return this.hasLastOverdriveNote(instrument.index());
+    }
+
+    public void setLastBeatOfUnisonBonus(boolean value) {
+        this.hasLastBeatOfUnisonBonus = true;
     }
 
     public int score(BandState startState, BandState endState) {
@@ -442,7 +446,7 @@ public class BeatInfo implements Cloneable {
             }
         }
 
-        if (this.hasUnisonBonusPhraseEnd()) {
+        if (this.hasLastBeatOfUnisonBonus()) {
             ArrayList< BandState > tmp = new ArrayList< BandState >(results.size());
             for (BandState tmpState: results) {
                 tmpState.acquireUnisonBonus();
@@ -475,8 +479,8 @@ public class BeatInfo implements Cloneable {
         // assert(results.size() < 128
     }
 
-    public boolean hasUnisonBonusPhraseEnd() {
-        return this.hasUnisonBonusPhraseEnd;
+    public boolean hasLastBeatOfUnisonBonus() {
+        return this.hasLastBeatOfUnisonBonus;
     }
 
 
@@ -572,7 +576,7 @@ public class BeatInfo implements Cloneable {
             result.hasOverdrivePhraseEnd[Instrument.GUITAR.index()] = 
                 result.hasOverdrivePhraseEnd[Instrument.BASS.index()] =
                 result.hasOverdrivePhraseEnd[Instrument.DRUMS.index()] = 
-                result.hasUnisonBonusPhraseEnd = true;
+                result.hasLastBeatOfUnisonBonus = true;
         }
         
         return result;

@@ -12,19 +12,17 @@ import java.util.Random;
 import java.util.StringTokenizer;
 
 public class SongInfo {
-    private ArrayList< BeatInfo > beats;
-    private String title;
+        public final static int SUBBEATS_PER_BEAT = 1 ; // will be larger for some songs
+        public final static int OVERDRIVE_PHRASE = 8 * SUBBEATS_PER_BEAT; 
+        public final static int OVERDRIVE_HALFBAR = 2 * OVERDRIVE_PHRASE;
+        public final static int OVERDRIVE_FULLBAR = 4 * OVERDRIVE_PHRASE;
+        private final static HashMap< String, TrackHandler > trackHandlers = buildTrackHandlerHash();
 
-    public final static int SUBBEATS_PER_BEAT = 1 ; // will be larger for some songs
-    public final static int OVERDRIVE_PHRASE = 8 * SUBBEATS_PER_BEAT; 
-    public final static int OVERDRIVE_HALFBAR = 2 * OVERDRIVE_PHRASE;
-    public final static int OVERDRIVE_FULLBAR = 4 * OVERDRIVE_PHRASE;
-    private final static HashMap< String, TrackHandler > trackHandlers = buildTrackHandlerHash();
-
-    // not always song-level data :/
-    byte beatsPerMeasure;
-    byte lengthOfBeat;
-    private TreeMap< Integer, BeatInfo > nearestBeatMap;
+        private ArrayList< BeatInfo > beats;
+        private String title;
+        private byte beatsPerMeasure; // not always song-level data
+        private byte lengthOfBeat;
+        private TreeMap< Integer, BeatInfo > nearestBeatMap;
 
     public SongInfo() {
         this.nearestBeatMap = new TreeMap< Integer, BeatInfo >();
@@ -67,11 +65,12 @@ public class SongInfo {
         HashMap< String, TrackHandler > result =
             new HashMap< String, TrackHandler >();
         result.put("BEAT", new BeatTrackHandler());
-        result.put("DRUMS", new DrumTrackHandler());
+        result.put("DRUMS", new DrumTrackHandler(Instrument.DRUMS, 4));
+        //result.put("BASS", nopHandler);
         result.put("BASS", new GuitarTrackHandler(Instrument.BASS, 6));
         //result.put("GUITAR", nopHandler);
         result.put("GUITAR", new GuitarTrackHandler(Instrument.GUITAR, 4));
-        result.put("VOCALS", new VocalTrackHandler());
+        result.put("VOCALS", new VocalTrackHandler(Instrument.VOCALS, 4));
         result.put("VENUE", nopHandler);
         result.put("EVENTS", nopHandler);
 
@@ -133,6 +132,7 @@ public class SongInfo {
             }
         } while (null != theLine);
 
+        result.computeUnisonBonus();
         result.computeMaximumOverdrive();
         return result;
     }
@@ -158,6 +158,23 @@ public class SongInfo {
         return result;
     }
 
+    public void computeUnisonBonus() {
+        BeatInfo lastBeatWithOverdrivePhraseEnd = null;
+
+        for (BeatInfo currentBeat : this.beats) {
+            if (currentBeat.hasLastOverdriveNote(Instrument.GUITAR) ||
+                currentBeat.hasLastOverdriveNote(Instrument.BASS) ||
+                currentBeat.hasLastOverdriveNote(Instrument.DRUMS)) {
+                lastBeatWithOverdrivePhraseEnd = currentBeat;
+            }
+
+            if (currentBeat.hasOverdrivePhraseEnd(Instrument.GUITAR) &&
+                currentBeat.hasOverdrivePhraseEnd(Instrument.BASS) &&
+                currentBeat.hasOverdrivePhraseEnd(Instrument.DRUMS)) {
+                lastBeatWithOverdrivePhraseEnd.setLastBeatOfUnisonBonus(true);
+            }
+        }
+    }
 
     public void computeMaximumOverdrive() {
         byte currentMaximumOverdrive[] = new byte[Instrument.INSTRUMENT_COUNT.index()];
@@ -173,7 +190,7 @@ public class SongInfo {
                 currentMaximumOverdrive[i] += previousBeat.getWhammy(i);
             }
 
-            if (previousBeat.hasUnisonBonusPhraseEnd()) {
+            if (previousBeat.hasLastBeatOfUnisonBonus()) {
                 currentMaximumOverdrive[Instrument.GUITAR.index()] += OVERDRIVE_PHRASE;
                 currentMaximumOverdrive[Instrument.BASS.index()] += OVERDRIVE_PHRASE;
                 currentMaximumOverdrive[Instrument.DRUMS.index()] += OVERDRIVE_PHRASE;
@@ -231,7 +248,7 @@ public class SongInfo {
                         overdriveRemaining += OVERDRIVE_PHRASE;
                     }
 
-                    if (beatInOverdrive.hasUnisonBonusPhraseEnd() &&
+                    if (beatInOverdrive.hasLastBeatOfUnisonBonus() &&
                         !Instrument.VOCALS.equals(instrument)) {
                         overdriveRemaining += OVERDRIVE_PHRASE;
                     }
