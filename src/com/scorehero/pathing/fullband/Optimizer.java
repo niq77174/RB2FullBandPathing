@@ -72,7 +72,7 @@ public class Optimizer {
 
             int score = 0;
             for (BandState nextState: nextStates) {
-                short beatScore = beatInfo.score(bandState, nextState);
+                int beatScore = beatInfo.score(bandState, nextState);
                 score = Math.max(score, beatScore + nextBeat.getScore(nextState));
             }
 

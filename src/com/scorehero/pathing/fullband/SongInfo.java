@@ -1,10 +1,15 @@
 package com.scorehero.pathing.fullband;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.io.LineNumberReader;
 import java.io.FileReader;
 import java.util.Random;
+import java.util.StringTokenizer;
 
 public class SongInfo {
     private ArrayList< BeatInfo > beats;
@@ -14,10 +19,24 @@ public class SongInfo {
     public final static int OVERDRIVE_PHRASE = 8 * SUBBEATS_PER_BEAT; 
     public final static int OVERDRIVE_HALFBAR = 2 * OVERDRIVE_PHRASE;
     public final static int OVERDRIVE_FULLBAR = 4 * OVERDRIVE_PHRASE;
+    private final static HashMap< String, TrackHandler > trackHandlers = buildTrackHandlerHash();
 
     // not always song-level data :/
     byte beatsPerMeasure;
     byte lengthOfBeat;
+    private TreeMap< Integer, BeatInfo > nearestBeatMap;
+
+    public SongInfo() {
+        this.nearestBeatMap = new TreeMap< Integer, BeatInfo >();
+    }
+    
+    public void addBeat(int startTicks, int endTicks) {
+        //System.out.println("Adding [" + startTicks + ", " + endTicks + ")");
+        BeatInfo newBeat = new BeatInfo(startTicks, endTicks);
+        this.beats.add(newBeat);
+        newBeat.setBeatNumber((short) (this.beats.size()-1));
+        this.nearestBeatMap.put(new Integer(startTicks), newBeat);
+    }
 
     public String title() {
         return this.title;
@@ -27,10 +46,94 @@ public class SongInfo {
         return this.beats;
     }
 
+    public BeatInfo getBeat(int beatNumber) {
+        return this.beats.get(beatNumber);
+    }
+
+    public BeatInfo getNearestBeat(int tickCount) {
+        Integer ticks = new Integer(tickCount);
+        SortedMap< Integer, BeatInfo > headMap = 
+            this.nearestBeatMap.headMap(ticks);
+        SortedMap< Integer, BeatInfo > tailMap = 
+            this.nearestBeatMap.tailMap(ticks);
+        if (tailMap.firstKey().intValue() == tickCount) {
+            return tailMap.get(tailMap.firstKey());
+        }
+        return headMap.get(headMap.lastKey());
+    }
+
+    private static HashMap< String, TrackHandler > buildTrackHandlerHash() {
+        TrackHandler nopHandler = new NopTrackHandler();
+        HashMap< String, TrackHandler > result =
+            new HashMap< String, TrackHandler >();
+        result.put("BEAT", new BeatTrackHandler());
+        result.put("DRUMS", new DrumTrackHandler());
+        result.put("BASS", new GuitarTrackHandler(Instrument.BASS, 6));
+        //result.put("GUITAR", nopHandler);
+        result.put("GUITAR", new GuitarTrackHandler(Instrument.GUITAR, 4));
+        result.put("VOCALS", new VocalTrackHandler());
+        result.put("VENUE", nopHandler);
+        result.put("EVENTS", nopHandler);
+
+        return result;
+    }
+
     public static SongInfo fromPathStatsFile(String title,
                                              String fileName) throws Exception {
         SongInfo result = SongInfo.fromPathStatsFile(fileName);
         result.title = title;
+        return result;
+    }
+
+    public static SongInfo fromMid2TxtFile(String fileName) throws Exception {
+        SongInfo result = new SongInfo();
+        result.beats = new ArrayList< BeatInfo >();
+        LineNumberReader in = new LineNumberReader(new FileReader(fileName));
+        String theLine = in.readLine();
+        int ticksPerBeat = 0;
+        do {
+            StringTokenizer tok = new StringTokenizer(theLine, " \"");
+            String firstTok = tok.nextToken();
+            if ("MTrk".equals(firstTok) || "TrkEnd".equals(firstTok)) {
+                theLine = in.readLine();
+                continue;
+            }
+
+            if ("MFile".equals(firstTok)) {
+                tok.nextToken();
+                tok.nextToken();
+                ticksPerBeat = Integer.valueOf(tok.nextToken()).intValue();
+                theLine = in.readLine();
+                continue;
+            }
+
+            // okay, we're near a track start
+            tok.nextToken();
+            tok.nextToken();
+            String track = tok.nextToken();
+            
+            System.out.println("track is: " + track);
+            if (SongInfo.trackHandlers.containsKey(track)) {
+                TrackHandler trackHandler = SongInfo.trackHandlers.get(track);
+                theLine = trackHandler.handleTrack(in, result);
+            } else {
+                if (tok.hasMoreTokens()) {
+                    String instrument = tok.nextToken();
+                    System.out.println("instrument is: " + instrument);
+                    TrackHandler trackHandler = SongInfo.trackHandlers.get(instrument);
+                    theLine = trackHandler.handleTrack(in, result);
+                } else {
+
+                    // must be the meta track
+                    result.title = track;
+                    do {
+                        theLine = in.readLine();
+                    } while (!"TrkEnd".equals(theLine));
+                }
+            }
+        } while (null != theLine);
+
+        result.computeMaximumOverdrive();
         return result;
     }
 
@@ -55,6 +158,7 @@ public class SongInfo {
         return result;
     }
 
+
     public void computeMaximumOverdrive() {
         byte currentMaximumOverdrive[] = new byte[Instrument.INSTRUMENT_COUNT.index()];
         for (int j = 1; j < this.beats.size(); ++j) {
@@ -65,7 +169,8 @@ public class SongInfo {
 
             for (int i = 0; i < 4; ++i) {
                 currentMaximumOverdrive[i] +=
-                    previousBeat.hasOverdrivePhraseEnd(i) ?  OVERDRIVE_PHRASE : 0;
+                    previousBeat.hasLastOverdriveNote(i) ?  OVERDRIVE_PHRASE : 0;
+                currentMaximumOverdrive[i] += previousBeat.getWhammy(i);
             }
 
             if (previousBeat.hasUnisonBonusPhraseEnd()) {
@@ -143,14 +248,11 @@ public class SongInfo {
         }
     }
 
-    public static SongInfo fromMid2TxtOutput(String fileName) throws Exception {
-        return null;
-    }
 
     public static void main(String[] args) throws Exception {
         String fileName = args[0];
         System.out.println("extracting songInfo from \"" + fileName + "\"");
-        SongInfo info = SongInfo.fromPathStatsFile(args[0]);
+        SongInfo info = SongInfo.fromMid2TxtFile(args[0]);
         ArrayList< BandState > bandStates = new ArrayList< BandState >();
 
         for (BeatInfo beatInfo : info.beats()) {
