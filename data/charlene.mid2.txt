@@ -1,10 +1,4 @@
 MTrk
-0 Meta TrkName "charlene"
-0 Tempo 550458
-0 TimeSig 4/4 24 8
-0 Meta TrkEnd
-TrkEnd
-MTrk
 0 Meta TrkName "BEAT"
 0 On ch=6 n=12 v=100
 240 Off ch=6 n=12 v=64
@@ -301,6 +295,12 @@ MTrk
 70080 On ch=6 n=13 v=100
 70320 Off ch=6 n=13 v=64
 70320 Meta TrkEnd
+TrkEnd
+MTrk
+0 Meta TrkName "charlene"
+0 Tempo 550458
+0 TimeSig 4/4 24 8
+0 Meta TrkEnd
 TrkEnd
 MTrk
 0 Meta TrkName "PART DRUMS"

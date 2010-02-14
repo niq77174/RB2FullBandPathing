@@ -65,14 +65,17 @@ public class SongInfo {
         HashMap< String, TrackHandler > result =
             new HashMap< String, TrackHandler >();
         result.put("BEAT", new BeatTrackHandler());
+        //result.put("DRUMS", nopHandler);
         result.put("DRUMS", new DrumTrackHandler(Instrument.DRUMS, 4));
         //result.put("BASS", nopHandler);
         result.put("BASS", new GuitarTrackHandler(Instrument.BASS, 6));
         //result.put("GUITAR", nopHandler);
         result.put("GUITAR", new GuitarTrackHandler(Instrument.GUITAR, 4));
+        //result.put("VOCALS", nopHandler);
         result.put("VOCALS", new VocalTrackHandler(Instrument.VOCALS, 4));
         result.put("VENUE", nopHandler);
         result.put("EVENTS", nopHandler);
+        result.put("TEMPO", new TempoTrackHandler());
 
         return result;
     }
@@ -119,21 +122,20 @@ public class SongInfo {
                 if (tok.hasMoreTokens()) {
                     String instrument = tok.nextToken();
                     System.out.println("instrument is: " + instrument);
-                    TrackHandler trackHandler = SongInfo.trackHandlers.get(instrument);
+                    TrackHandler trackHandler = trackHandlers.get(instrument);
                     theLine = trackHandler.handleTrack(in, result);
                 } else {
 
                     // must be the meta track
                     result.title = track;
-                    do {
-                        theLine = in.readLine();
-                    } while (!"TrkEnd".equals(theLine));
+                    theLine = trackHandlers.get("TEMPO").handleTrack(in,result);
                 }
             }
         } while (null != theLine);
 
         result.computeUnisonBonus();
         result.computeMaximumOverdrive();
+        result.computeReachableVocalAndDrumMeters();
         return result;
     }
 
@@ -244,7 +246,9 @@ public class SongInfo {
                     // check to see if we're done
                     beatInOverdrive.canBeInOverdrive[instrument.index()] = true;
                     beatInOverdrive.setReachableMeter(instrument, overdriveRemaining);
-                    if (beatInOverdrive.hasOverdrivePhraseEnd(instrument)) {
+                    if (beatInOverdrive.hasLastOverdriveNote(instrument) &&
+                        ((beatInOverdrive != currentBeat) ||
+                          beatInOverdrive.isVocalPhraseEnd())) {
                         overdriveRemaining += OVERDRIVE_PHRASE;
                     }
 

@@ -85,22 +85,24 @@ public class BandState implements Cloneable {
 
     public String toString() {
         StringBuilder result = new StringBuilder();
+        /*
         result.append("BandState: ");
         String binaryString = Integer.toBinaryString(this.serializedData());
         for (int i = 0; i < (32 - binaryString.length()); ++i) {
             result.append("0");
         }
         result.append(binaryString);
-        result.append("\n Instrument Meter: ");
-        result.append("Guitar: " + instrumentMeter[Instrument.GUITAR.index()]);
-        result.append(", Drums: " + instrumentMeter[Instrument.DRUMS.index()]);
-        result.append(", Vocals: " + instrumentMeter[Instrument.VOCALS.index()]);
-        result.append(", Bass: " + instrumentMeter[Instrument.BASS.index()]);
-        result.append("\n instruments in overdrive: ");
-        result.append("Guitar: " + (instrumentInOverdrive[Instrument.GUITAR.index()] ? 'Y' : 'N'));
-        result.append(", Drums: " + (instrumentInOverdrive[Instrument.DRUMS.index()] ? 'Y' : 'N'));
-        result.append(", Vocals: " + (instrumentInOverdrive[Instrument.VOCALS.index()] ? 'Y' : 'N'));
-        result.append(", Bass: " + (instrumentInOverdrive[Instrument.BASS.index()] ? 'Y' : 'N'));
+        */
+        result.append("Meter: ");
+        result.append(instrumentMeter[Instrument.GUITAR.index()]);
+        result.append("|" + instrumentMeter[Instrument.DRUMS.index()]);
+        result.append("|" + instrumentMeter[Instrument.VOCALS.index()]);
+        result.append("|" + instrumentMeter[Instrument.BASS.index()]);
+        result.append("  Overdrive: ");
+        result.append((instrumentInOverdrive[Instrument.GUITAR.index()] ? 'Y' : 'N'));
+        result.append("|" + (instrumentInOverdrive[Instrument.DRUMS.index()] ? 'Y' : 'N'));
+        result.append("|" + (instrumentInOverdrive[Instrument.VOCALS.index()] ? 'Y' : 'N'));
+        result.append("|" + (instrumentInOverdrive[Instrument.BASS.index()] ? 'Y' : 'N'));
         return result.toString();
     }
 

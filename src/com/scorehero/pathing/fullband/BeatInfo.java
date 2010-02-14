@@ -12,7 +12,8 @@ public class BeatInfo implements Cloneable {
         int beatStartTicks;
         int beatEndTicks;
         int score;
-        int drumScore; // 0 if not covered by fill
+        int vocalScore;
+        private int drumScore; // 0 if not covered by fill
         boolean hasOverdrivePhraseEnd[] = new boolean[Instrument.INSTRUMENT_COUNT.index()];
         boolean hasLastOverdriveNote[] = new boolean[Instrument.INSTRUMENT_COUNT.index()];
         boolean instrumentCanActivate[] = new boolean[Instrument.INSTRUMENT_COUNT.index()];
@@ -20,8 +21,11 @@ public class BeatInfo implements Cloneable {
         boolean isReachableActiveMeter[][] = new boolean[Instrument.INSTRUMENT_COUNT.index()][SongInfo.OVERDRIVE_FULLBAR+1];
         byte maximumOverdriveBar[] = new byte[Instrument.INSTRUMENT_COUNT.index()];
         byte whammy[] = new byte[Instrument.INSTRUMENT_COUNT.index()];
-        boolean isDrumFill;
-        boolean hasLastBeatOfUnisonBonus;
+        boolean isDrumFill = false;
+        boolean hasLastBeatOfUnisonBonus = false;
+        boolean isVocalPhraseEnd = false;
+        int duration = 0; // microseconds
+        private int odToFillDuration = 0;
 
     public BeatInfo() {
         this(0,0);
@@ -70,6 +74,17 @@ public class BeatInfo implements Cloneable {
                          int score) {
         //System.out.println("beat " + this.measureNumber() + " adding " + score);
         this.score += score;
+        if (Instrument.DRUMS.equals(instrument)) {
+            this.drumScore += score;
+        }
+
+        if (Instrument.VOCALS.equals(instrument)) {
+            this.vocalScore += score;
+        }
+
+        if (this.score < 0) {
+            System.out.println("beat " + this.measureNumber() + " negative score?!? added " + score);
+        }
     }
 
     public void setWhammy(Instrument instrument, byte whammy) {
@@ -79,6 +94,22 @@ public class BeatInfo implements Cloneable {
 
     public short maximumOverdrive(Instrument instrument) {
         return this.maximumOverdriveBar[instrument.index()];
+    }
+
+    public void setIsDrumFill(boolean isDrumFill) {
+        this.isDrumFill = isDrumFill;
+    }
+
+    public boolean isDrumFill() {
+        return this.isDrumFill;
+    }
+
+    public void addDuration(int duration) {
+        this.duration += duration;
+    }
+
+    public int duration() {
+        return this.duration;
     }
 
     public boolean instrumentCanActivate(Instrument instrument) {
@@ -97,6 +128,14 @@ public class BeatInfo implements Cloneable {
         return ((!bandState.instrumentInOverdrive(instrumentIndex)) &&
                 (this.instrumentCanActivate[instrumentIndex]) && 
                 (bandState.getInstrumentMeter(instrumentIndex) >= SongInfo.OVERDRIVE_HALFBAR));
+    }
+
+    public void setInstrumentCanActivate(Instrument instrument, boolean value) {
+        this.setInstrumentCanActivate(instrument.index(), value);
+    }
+
+    public void setInstrumentCanActivate(int instrument, boolean value) {
+        this.instrumentCanActivate[instrument] = value;
     }
 
     public void setReachableMeter(Instrument instrument,
@@ -151,8 +190,24 @@ public class BeatInfo implements Cloneable {
         return this.hasLastOverdriveNote(instrument.index());
     }
 
+    public boolean isVocalPhraseEnd() {
+        return this.isVocalPhraseEnd;
+    }
+
+    public void setVocalPhraseEnd(boolean value) {
+        this.isVocalPhraseEnd = true;
+    }
+
     public void setLastBeatOfUnisonBonus(boolean value) {
         this.hasLastBeatOfUnisonBonus = true;
+    }
+
+    public void setODToFillDuration(int duration) {
+        this.odToFillDuration = duration;
+    }
+
+    public int odToFillDuration() {
+        return this.odToFillDuration;
     }
 
     public int score(BandState startState, BandState endState) {
@@ -161,7 +216,21 @@ public class BeatInfo implements Cloneable {
         // subtract out the drum score if this is part of an overdrive fill
         // needs to take into account distance to last OD activation
 
-        if (startState.instrumentCanActivate(Instrument.DRUMS)) {
+        if (startState.instrumentCanActivate(Instrument.DRUMS) && 
+            this.isDrumFill()) {
+
+            // if the fill is too close to the most recent OD the fill is
+            // uncovered
+            //
+            // (this doesn't work if a unison bonus phrase causes the half-bar
+            // slightly later ... need to update odToFillDuration during
+            // computeUnisonBonus
+            if ((SongInfo.OVERDRIVE_HALFBAR == 
+                 startState.getInstrumentMeter(Instrument.DRUMS)) &&
+                this.odToFillDuration() < DrumTrackHandler.MIN_FILL_DURATION) {
+                result += drumScore;
+            }
+
             result -= this.drumScore;
         }
 
@@ -173,6 +242,8 @@ public class BeatInfo implements Cloneable {
 
         // therefore, the beat was played in OD if either the start or end state
         // occured during overdrive
+
+
         for (int i = 0; i < 4; ++i) {
             if (startState.instrumentInOverdrive(i) ||
                 endState.instrumentInOverdrive(i)) {
@@ -180,16 +251,19 @@ public class BeatInfo implements Cloneable {
             }
         }
 
-        // this is devious.
-        // The first term here is straight forward. Just 2x # instruments
-        // The second term is a 0-1 variable that is 0 if and only if
-        // instruments == 0. So with nothing in overdrive, it reduces to
-        //      0 + 1 = 1
-        // But for all other cases it reduces to
-        //      2 * N + 0 == 2* N
+        int multiplier = computeMultiplier(instrumentsInOverdrive);
+        boolean phraseEndAndActivation =
+            this.isVocalPhraseEnd() && 
+            startState.instrumentInOverdrive(Instrument.VOCALS) && 
+            endState.instrumentInOverdrive(Instrument.VOCALS);
 
-        // assert(instruments <=4, "more than 4 instruments in overdrive");
-        int multiplier = 2*instrumentsInOverdrive + (1-(instrumentsInOverdrive+3)/4);
+        if (phraseEndAndActivation) {
+            int vocalInstrumentsInOverdrive = instrumentsInOverdrive - 1;
+            int vocalMultiplier = computeMultiplier(vocalInstrumentsInOverdrive);
+            result -= vocalScore;
+            return vocalMultiplier*this.vocalScore + result*multiplier;
+        }
+ 
 
         return result * multiplier;
     }
@@ -221,6 +295,19 @@ public class BeatInfo implements Cloneable {
         int multiplier = 2*instrumentsInOverdrive + (1-(instrumentsInOverdrive+3)/4);
 
         return result * multiplier;
+    }
+
+    private static int computeMultiplier(int instrumentsInOverdrive) {
+        // this is devious.
+        // The first term here is straight forward. Just 2x # instruments
+        // The second term is a 0-1 variable that is 0 if and only if
+        // instruments == 0. So with nothing in overdrive, it reduces to
+        //      0 + 1 = 1
+        // But for all other cases it reduces to
+        //      2 * N + 0 == 2* N
+
+        // assert(instruments <=4, "more than 4 instruments in overdrive");
+        return 2*instrumentsInOverdrive + (1-(instrumentsInOverdrive+3)/4);
     }
 
 
@@ -402,7 +489,6 @@ public class BeatInfo implements Cloneable {
         // apply whammy (does not affect activation)
 
         if (this.hasWhammy(Instrument.GUITAR)) {
-            System.out.println("whammying guitar");
             ArrayList< BandState > tmp = new ArrayList< BandState >(results.size());
             for (BandState tmpState : results) {
                 // skip the whammy if there's no room for it
@@ -420,7 +506,6 @@ public class BeatInfo implements Cloneable {
         }
 
         if (this.hasWhammy(Instrument.BASS)) {
-            System.out.println("whammying bass");
             ArrayList< BandState > tmp = new ArrayList< BandState >(results.size());
             for (BandState tmpState : results) {
                 if (!tmpState.instrumentInOverdrive(Instrument.BASS) &&
@@ -438,7 +523,7 @@ public class BeatInfo implements Cloneable {
 
         // acquire overdrive phrases (does not truncate)
         for (int i = 0; i < Instrument.INSTRUMENT_COUNT.index(); ++i) {
-            if (this.hasOverdrivePhraseEnd(i)) {
+            if (this.hasLastOverdriveNote(i)) {
                 for (BandState tmpState : results) {
                     BandState newBandState = (BandState) tmpState.clone();
                     tmpState.acquireOverdrive(i);
@@ -494,14 +579,20 @@ public class BeatInfo implements Cloneable {
         result.append(this.beatStartTicks);
         result.append("  End ticks: ");
         result.append(this.beatEndTicks);
+        result.append("  Vox end: ");
+        result.append(this.isVocalPhraseEnd ? "Y" : "N");
         result.append("\n Score:");
         result.append(this.score);
-        result.append(", Drum Score: ");
-        result.append(this.drumScore);
+        result.append("  Fill Score: ");
+        result.append(this.isDrumFill() ? this.drumScore : 0);
         result.append("  Whammy: ");
         result.append(this.whammy[Instrument.GUITAR.index()]);
         result.append("|");
         result.append(this.whammy[Instrument.BASS.index()]);
+        result.append("  Duration: ");
+        result.append(this.duration);
+        result.append("  OD->Fill: ");
+        result.append(this.odToFillDuration);
         result.append("\n OD last note: ");
         result.append(this.hasLastOverdriveNote[Instrument.GUITAR.index()] ?  "Y" : "N" );
         result.append("|");

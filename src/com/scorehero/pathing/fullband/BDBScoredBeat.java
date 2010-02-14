@@ -112,7 +112,7 @@ public class BDBScoredBeat extends ScoredBeat {
         }
 
         result.append(beatNumber);
-        System.out.println("Searching for " + result);
+        //System.out.println("Searching for " + result);
         return result.toString();
     }
 

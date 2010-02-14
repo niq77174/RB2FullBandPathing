@@ -87,7 +87,11 @@ public class Optimizer {
         Optimizer.debugOutput = true;
 
         ArrayList< BandState > path = new ArrayList< BandState >();
-        SongInfo song = SongInfo.fromPathStatsFile("charlene", args[0]);
+        SongInfo song = SongInfo.fromMid2TxtFile(args[0]);
+        for (BeatInfo beatInfo : song.beats()) {
+            System.out.println(beatInfo + "\n");
+        }
+
         Optimizer optimizer = new Optimizer();
         optimizer.optimize(song, path);
 
@@ -100,7 +104,7 @@ public class Optimizer {
             int beatScore = currentBeat.score(currentState, nextState);
             score += beatScore;
             System.out.println("Score: " + score + " Beat Score: " + beatScore);
-            System.out.println("beat " + i+1);
+            System.out.println("beat " + (i+1));
             currentState = nextState;
             System.out.println(nextState);
         }

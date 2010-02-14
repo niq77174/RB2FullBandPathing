@@ -56,9 +56,11 @@ public class StandardScoredBeat extends ScoredBeat {
             database.put(null, key, value);
         }
         Environment env = database.getEnvironment();
+        /*
         StatsConfig config = new StatsConfig();
         config.setClear(true);
         System.out.println(env.getStats(config));
+        */
         database.close();
         env.close();
     }

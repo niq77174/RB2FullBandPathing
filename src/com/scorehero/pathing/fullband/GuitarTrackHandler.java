@@ -31,7 +31,6 @@ public class GuitarTrackHandler extends TrackHandler {
                 tok.nextToken();
                 String note = tok.nextToken();
                 if (TrackHandler.OVERDRIVE_NOTE.equals(note)) {
-                    System.out.println("OD start found: " + ticks);
                     overdriveStart = ticks;
                     inOverdrive = true;
                     continue;
