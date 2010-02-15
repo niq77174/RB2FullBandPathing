@@ -13,6 +13,7 @@ public class VocalTrackHandler extends TrackHandler {
         private final static Set< String > VOCAL_NOTES = buildVocalHashSet();
         private final static String VOCAL_P1_NOTE = "n=105";
         private final static String VOCAL_P2_NOTE = "n=106";
+        private final static String VOCAL_PERC_NOTE = "n=96";
         private final static int VOCAL_PHRASE_BASE_SCORE = 1000;
         private final static int VOCAL_ACTIVATION_PHRASE_MINIMUM = 600000;
 
@@ -21,6 +22,7 @@ public class VocalTrackHandler extends TrackHandler {
         for (int i = 0; i < 49; ++i) {
             result.add("n=" + (36+i));
         }
+        result.add(VOCAL_PERC_NOTE);
 
         return result;
     }
@@ -55,8 +57,7 @@ public class VocalTrackHandler extends TrackHandler {
                 if (VOCAL_P1_NOTE.equals(note) || VOCAL_P2_NOTE.equals(note)) {
                     // compute activatable regions
                     computeActivationPoints(lastNoteEnd, ticks, result);
-
-
+                    continue;
                     // add vocal activation points
                 }
 
@@ -70,7 +71,9 @@ public class VocalTrackHandler extends TrackHandler {
                     continue;
                 }
 
-                startTicks.add(new Integer (ticks));
+                if (!VOCAL_PERC_NOTE.equals(note)) {
+                    startTicks.add(new Integer (ticks));
+                }
                 lastNoteStart = ticks;
             } else if ("Off".equals(onOff)) {
                 tok.nextToken();
@@ -125,7 +128,9 @@ public class VocalTrackHandler extends TrackHandler {
                 }
 
                 thisPhraseTicks += (ticks - lastNoteStart);
-                endTicks.add(new Integer(ticks));
+                if (!VOCAL_PERC_NOTE.equals(note)) {
+                    endTicks.add(new Integer (ticks));
+                }
                 lastNoteEnd = ticks;
             }
         }
@@ -134,6 +139,7 @@ public class VocalTrackHandler extends TrackHandler {
     }
 
     private static void computeActivationPoints(int intervalStart, int intervalEnd, SongInfo result) {
+        System.out.println("computing activations points between " + intervalStart + " and " + intervalEnd);
         BeatInfo currentBeat = result.getNearestBeat(intervalStart);
         int duration = 0;
         do {

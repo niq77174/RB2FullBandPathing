@@ -43,6 +43,19 @@ public class StandardScoredBeat extends ScoredBeat {
         return scoredBandState.intValue();
     }
 
+    public int getScore(BandState oldState, BandState newState) {
+        Integer scoredBandState = scoredBandStateMap.get(new Integer(newState.serializedData()));
+        if (null == scoredBandState) {
+            System.out.println("ruh-roh! couldn't find score!");
+            System.out.println(oldState);
+            System.out.println(newState);
+            // ruh-roh! This should never happen.
+        }
+        
+        return scoredBandState.intValue();
+
+    }
+
     public void flush(String title, int beatNumber) {
         System.out.println("flushing " + this.scoredBandStateMap.size() +  " elements");
         Database database = BDBScoredBeat.getDB(title, beatNumber, false);

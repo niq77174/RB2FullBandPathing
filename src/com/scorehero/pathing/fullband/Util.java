@@ -6,8 +6,15 @@ public class Util {
     }
 
     public static void truncateOverdriveMeters(byte overdriveMeter[]) {
-        for (int i = 0; i < overdriveMeter.length; ++i) {
+        for (int i = 0; i < Instrument.INSTRUMENT_COUNT.index(); ++i) {
             overdriveMeter[i] = Util.truncateOverdriveMeter(overdriveMeter[i]);
+        }
+    }
+
+    public static void truncateOverdriveMeters(BandState bandState) {
+        for (int i = 0; i < Instrument.INSTRUMENT_COUNT.index(); ++i) {
+            final byte newMeter = Util.truncateOverdriveMeter(bandState.getInstrumentMeter(i));
+            bandState.setInstrumentMeter(i, newMeter);
         }
     }
 

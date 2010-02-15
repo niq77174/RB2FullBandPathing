@@ -36,10 +36,12 @@ public class BDBScoredBeat extends ScoredBeat {
         try {
             EnvironmentConfig result = new EnvironmentConfig();
             result.setReadOnly(true);
-            result.setAllowCreate(false);
+            result.setAllowCreate(true); // because we use LOG_MEM_ONLY, have to fake out the DB
             result.setLockTimeout(0, TimeUnit.SECONDS);
             result.setLocking(false);
             result.setTransactional(false);
+            result.setConfigParam(EnvironmentConfig.ENV_RUN_CHECKPOINTER, "false");
+            //result.setConfigParam(EnvironmentConfig.LOG_MEM_ONLY, "true");
             return result;
         } catch (RuntimeException e) {
             System.err.println(e.getMessage());
@@ -56,6 +58,8 @@ public class BDBScoredBeat extends ScoredBeat {
             result.setLockTimeout(0, TimeUnit.SECONDS);
             result.setLocking(false);
             result.setTransactional(false);
+            result.setConfigParam(EnvironmentConfig.ENV_RUN_CHECKPOINTER, "false");
+            //result.setConfigParam(EnvironmentConfig.LOG_MEM_ONLY, "true");
             return result;
         } catch (RuntimeException e) {
             System.err.println(e.getMessage());

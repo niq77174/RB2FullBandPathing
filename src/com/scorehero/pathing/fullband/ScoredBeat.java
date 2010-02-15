@@ -9,6 +9,9 @@ public abstract class ScoredBeat {
     public abstract void addScore(BandState bandState, int score);
 
     public abstract int getScore(BandState bandState);
+    public int getScore(BandState oldState, BandState newState) {
+        return 0;
+    }
     public abstract void flush(String title, int beatNumber);
     public abstract void close();
 

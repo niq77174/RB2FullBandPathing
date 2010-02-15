@@ -525,18 +525,15 @@ public class BeatInfo implements Cloneable {
         for (int i = 0; i < Instrument.INSTRUMENT_COUNT.index(); ++i) {
             if (this.hasLastOverdriveNote(i)) {
                 for (BandState tmpState : results) {
-                    BandState newBandState = (BandState) tmpState.clone();
                     tmpState.acquireOverdrive(i);
                 }
             }
         }
 
         if (this.hasLastBeatOfUnisonBonus()) {
-            ArrayList< BandState > tmp = new ArrayList< BandState >(results.size());
             for (BandState tmpState: results) {
                 tmpState.acquireUnisonBonus();
             }
-
         }
 
 
@@ -562,6 +559,120 @@ public class BeatInfo implements Cloneable {
 
 
         // assert(results.size() < 128
+    }
+
+    public int computeReachableNextStatesInPlace(BandState currentBandState, ArrayList< BandState > results) 
+    throws Exception {
+        int stateCount = 0;
+        boolean canSqueezeDrums = currentBandState.canSqueeze(Instrument.DRUMS, this);
+        currentBandState.copyTo(results.get(stateCount));
+        ++stateCount;
+
+        // toggle activations for any instrument that is in a position to do so
+        // technically we need to do this for all states, but we know that there's only one state.
+        for(int i = 0; i < Instrument.INSTRUMENT_COUNT.index(); ++i) {
+            if (this.instrumentCanActivate(i, currentBandState)) {
+                final int currentStateCount = stateCount;
+                for (int j = 0; j < currentStateCount; ++j) {
+                    BandState oldState = results.get(j);
+                    BandState newState  = results.get(j+currentStateCount);
+                    oldState.copyTo(newState);
+                    newState.activateInstrument(i);
+                    ++stateCount;
+                }
+                assert(currentStateCount <= stateCount);
+                assert(stateCount <= currentStateCount*2);
+            }
+        }
+        assert(stateCount <= 16);
+
+        for (int i = 0; i < stateCount; ++i) {
+            for (int j = 0; j < Instrument.INSTRUMENT_COUNT.index(); ++j) {
+                BandState tmpState = results.get(i);
+                int odChange = currentBandState.getInstrumentMeter(j) - tmpState.getInstrumentMeter(j);
+                if (odChange > 1) {
+                    System.out.println("post-activation drain fail! instrument " + j);
+                    System.out.println(currentBandState);
+                    System.out.println(tmpState);
+                    throw new Exception();
+                }
+            }
+        }
+
+        // apply whammy (does not affect activation)
+
+        if (this.hasWhammy(Instrument.GUITAR)) {
+            final int currentStateCount = stateCount;
+            int newStates = 0;
+            for (int i = 0; i < currentStateCount; ++i) {
+                BandState oldState = results.get(i);
+                if (!oldState.instrumentInOverdrive(Instrument.GUITAR) &&
+                    SongInfo.OVERDRIVE_FULLBAR == oldState.getInstrumentMeter(Instrument.GUITAR)) {
+                    continue;
+                }
+
+                BandState newState = results.get(newStates+currentStateCount);
+                oldState.copyTo(newState);
+                newState.applyWhammy(Instrument.GUITAR, this);
+                ++newStates;
+                ++stateCount;
+            }
+
+        }
+
+        if (this.hasWhammy(Instrument.BASS)) {
+            final int currentStateCount = stateCount;
+            int newStates = 0;
+            for (int i = 0; i < currentStateCount; ++i) {
+                BandState oldState = results.get(i);
+                if (!oldState.instrumentInOverdrive(Instrument.BASS) &&
+                    SongInfo.OVERDRIVE_FULLBAR == oldState.getInstrumentMeter(Instrument.BASS)) {
+                    continue;
+                }
+
+                BandState newState = results.get(newStates+currentStateCount);
+                oldState.copyTo(newState);
+                newState.applyWhammy(Instrument.BASS, this);
+                ++newStates;
+                ++stateCount;
+            }
+
+        }
+
+        // acquire overdrive phrases (does not truncate)
+        for (int i = 0; i < Instrument.INSTRUMENT_COUNT.index(); ++i) {
+            if (this.hasLastOverdriveNote(i)) {
+                for (int j = 0; j < stateCount; ++j) {
+                    results.get(j).acquireOverdrive(i);
+                }
+            }
+        }
+
+        if (this.hasLastBeatOfUnisonBonus()) {
+            for (int i = 0; i < stateCount; ++i) {
+                results.get(i).acquireUnisonBonus();
+            }
+        }
+
+        // advance all the instruments that are in overdrive (affects
+        // activation)
+        int currentStateCount = stateCount;
+        for (int i = 0; i < currentStateCount; ++i) {
+            BandState oldState = results.get(i);
+            if (canSqueezeDrums) {
+                //System.out.println("squeezing drums");
+                BandState newState = results.get(i+currentStateCount);
+                oldState.copyTo(newState);
+                newState.advanceActivatedInstruments(this, true);
+                ++stateCount;
+            }
+
+            oldState.advanceActivatedInstruments(this, false);
+        }
+
+        assert(stateCount <= 128);
+
+        return stateCount;
     }
 
     public boolean hasLastBeatOfUnisonBonus() {

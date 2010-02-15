@@ -276,16 +276,20 @@ public class SongInfo {
         SongInfo info = SongInfo.fromMid2TxtFile(args[0]);
         ArrayList< BandState > bandStates = new ArrayList< BandState >();
 
+        /*
         for (BeatInfo beatInfo : info.beats()) {
             System.out.println(beatInfo + "\n");
         }
+        */
 
         /*
         for (int i = 0; i < info.beats().size(); ++i){
-            info.computeReachableStates(i, bandStates);
+            info.getBeat(i).computeReachableStates(bandStates);
             System.out.println("Beat " + i + " has " + bandStates.size() + " states");
             bandStates.clear();
         }
+        */
+
         Random rng = new Random();
 
         int totalNextStates = 0;
@@ -295,16 +299,22 @@ public class SongInfo {
             System.out.println("next beat");
             System.out.println(currentBeat);
             currentBeat.computeReachableStates(bandStates);
-            ArrayList< BandState > nextStates = new ArrayList< BandState > ();
+            //ArrayList< BandState > nextStates = new ArrayList< BandState > ();
             for (int j = 0; j < 20; ++j) {
+                ArrayList< BandState > nextStates = new ArrayList< BandState >(256);
+
+                for (int k = 0; k < 256; ++k) {
+                    nextStates.add(new BandState());
+                }
+
                 BandState theState = bandStates.get(rng.nextInt(bandStates.size()));
                 System.out.println("current bandstates");
                 System.out.println(theState);
-                currentBeat.computeReachableNextStates(theState, nextStates);
+                int count = currentBeat.computeReachableNextStatesInPlace(theState, nextStates);
                 System.out.println("next bandstates");
                 totalNextStates += nextStates.size();
-                for (BandState bandState : nextStates) {
-                    System.out.println(bandState);
+                for (int k = 0; k < count; ++k) {
+                    System.out.println(nextStates.get(i));
                 }
                 System.out.println("====");
                 nextStates.clear();
@@ -312,7 +322,6 @@ public class SongInfo {
             bandStates.clear();
         }
         System.out.println("total next states: " + totalNextStates);
-        */
     }
 
 }
