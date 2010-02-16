@@ -13,7 +13,6 @@ import com.sleepycat.je.StatsConfig;
 
 public class StandardScoredBeat extends ScoredBeat {
     protected TreeMap< Integer, Integer> scoredBandStateMap;
-    BloomFilter bloomFilter;
 
     public StandardScoredBeat() {
         super();
