@@ -3,9 +3,9 @@ package com.scorehero.pathing.fullband;
 import java.util.Collection;
 import java.util.ArrayList;
 
-public class InPlaceOptimizer {
+public class DIYStorageOptimizer {
     private static boolean debugOutput = false;
-    public InPlaceOptimizer() {
+    public DIYStorageOptimizer() {
     }
 
     public void optimize(SongInfo songInfo, 
@@ -61,7 +61,7 @@ public class InPlaceOptimizer {
     private final static int MAX_BAND_STATES = 256;
 
     private ScoredBeat optimizeBeat(BeatInfo beatInfo, ScoredBeat nextBeat) throws Exception {
-        ScoredBeat result = new StandardScoredBeat();
+        ScoredBeat result = new HandRolledSerializedScoredBeat();
         ArrayList< BandState > bandStates =  new ArrayList< BandState>();
         beatInfo.computeReachableStates(bandStates);
         System.out.println("Optimizing " + beatInfo);
@@ -94,7 +94,7 @@ public class InPlaceOptimizer {
 
 
     public static void main(String[] args) throws Exception {
-        InPlaceOptimizer.debugOutput = true;
+        DIYStorageOptimizer.debugOutput = true;
 
         ArrayList< BandState > path = new ArrayList< BandState >();
         SongInfo song = SongInfo.fromMid2TxtFile(args[0]);
@@ -104,9 +104,10 @@ public class InPlaceOptimizer {
         }
         */
 
-        InPlaceOptimizer optimizer = new InPlaceOptimizer();
+        DIYStorageOptimizer optimizer = new DIYStorageOptimizer();
         optimizer.optimize(song, path);
 
+        /*
         System.out.println("beat 0");
         BandState currentState = path.get(0);
         int score = 0;
@@ -124,5 +125,6 @@ public class InPlaceOptimizer {
         int beatScore = song.beats().get(path.size()-1).score(currentState, BandState.INITIAL_BANDSTATE);
         score += beatScore;
         System.out.println("Score: " + score + " Beat Score: " + beatScore);
+        */
     }
 }

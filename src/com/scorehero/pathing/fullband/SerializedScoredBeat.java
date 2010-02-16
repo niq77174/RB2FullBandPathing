@@ -10,40 +10,21 @@ import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.OperationStatus;
 import com.sleepycat.je.StatsConfig;
+import java.io.Serializable;
+import java.io.IOException;
 
-public class StandardScoredBeat extends ScoredBeat {
-    protected TreeMap< Integer, Integer> scoredBandStateMap;
-    BloomFilter bloomFilter;
+public class SerializedScoredBeat extends StandardScoredBeat implements Serializable {
 
-    public StandardScoredBeat() {
+    public SerializedScoredBeat() {
         super();
-        this.scoredBandStateMap = new TreeMap< Integer, Integer >( );
+        this.scoredBandStateMap = 
+            new TreeMap< Integer, Integer >( );
     }
 
-    public void addScore(BandState bandState, int score) {
-        Integer key = new Integer(bandState.serializedData());
-        Integer oldScoreObj = this.scoredBandStateMap.get(key);
-        int oldScore = (null == oldScoreObj) ? 0 : oldScoreObj.intValue();
 
-        if ((score > oldScore) || (0 == score)) {
-            this.scoredBandStateMap.put(key, new Integer(score));
-            assert(this.scoredBandStateMap.size() > 0);
-        }
-    }
 
-    public int getScore(BandState bandState) {
-
-        Integer scoredBandState = scoredBandStateMap.get(new Integer(bandState.serializedData()));
-        if (null == scoredBandState) {
-            System.out.println("ruh-roh! couldn't find score!");
-            System.out.println(bandState);
-            // ruh-roh! This should never happen.
-        }
-        
-        return scoredBandState.intValue();
-    }
-
-    public void flush(String title, int beatNumber) throws Exception {
+    public void flush(String title, int beatNumber) {
+        System.out.println("Serializing " + this.scoredBandStateMap.size() +  " elements");
         Database database = BDBScoredBeat.getDB(title, beatNumber, false);
         DatabaseEntry key = new DatabaseEntry();
         DatabaseEntry value = new DatabaseEntry();
@@ -63,6 +44,16 @@ public class StandardScoredBeat extends ScoredBeat {
         database.close();
         env.close();
     }
+
+    public static void fromDisk(String title, int beatNumber) {
+    }
+
+    private void writeObject(java.io.ObjectOutputStream out) throws IOException {
+    }
+
+    private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
+    }
+
 
     public void close() {
     }

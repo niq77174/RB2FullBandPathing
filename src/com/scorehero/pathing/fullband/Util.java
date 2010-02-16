@@ -25,10 +25,14 @@ public class Util {
     }
 
     public static void toByteArray(int n, byte[] result) {
-        result[0] = (byte) (n & 0xff);
-        result[1] = (byte) ((n >>> 8) & 0xff);
-        result[2] = (byte) ((n >>> 16) & 0xff);
-        result[3] = (byte) ((n >>> 24) & 0xff);
+        Util.toByteArray(n, 0, result);
+    }
+    
+    public static void toByteArray(int n, int offset, byte[] result) {
+        result[offset+0] = (byte) (n & 0xff);
+        result[offset+1] = (byte) ((n >>> 8) & 0xff);
+        result[offset+2] = (byte) ((n >>> 16) & 0xff);
+        result[offset+3] = (byte) ((n >>> 24) & 0xff);
     }
 
     public static int toInteger(byte[] byteArray) {

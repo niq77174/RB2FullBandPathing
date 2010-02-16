@@ -156,7 +156,7 @@ public class BDBScoredBeat extends ScoredBeat {
         return IntegerBinding.entryToInt(result);
     }
 
-    public void flush(String title, int beatNumber) {
+    public void flush(String title, int beatNumber) throws Exception {
     }
 
     public void close() {
