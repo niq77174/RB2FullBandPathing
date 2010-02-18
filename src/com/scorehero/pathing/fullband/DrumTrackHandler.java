@@ -34,6 +34,7 @@ public class DrumTrackHandler extends TrackHandler {
         int lastOverdriveNote = 0;
 
         String theLine = null;
+        int odToFillDuration = 0;
         while(!"TrkEnd".equals(theLine = in.readLine())) {
             StringTokenizer tok = new StringTokenizer(theLine, " ");
             int ticks = Integer.valueOf(tok.nextToken()).intValue();
@@ -78,7 +79,7 @@ public class DrumTrackHandler extends TrackHandler {
                 if (FILL_BRE_NOTES.contains(note)) {
                     int fillEnd = ticks;
                     BeatInfo currentBeat = result.getNearestBeat(fillStart);
-                    int odToFillDuration = computeDuration(lastOverdriveNote, fillStart, result);
+                    odToFillDuration = computeDuration(lastOverdriveNote, fillStart, result);
                     do {
                         currentBeat.setIsDrumFill(true);
                         currentBeat.setODToFillDuration(odToFillDuration);
@@ -104,6 +105,7 @@ public class DrumTrackHandler extends TrackHandler {
             BeatInfo currentBeat = result.getBeat(i);
             if (previousBeat.isDrumFill() && !currentBeat.isDrumFill()) {
                 currentBeat.setInstrumentCanActivate(Instrument.DRUMS, true);
+                currentBeat.setODToFillDuration(previousBeat.odToFillDuration());
             }
         }
 

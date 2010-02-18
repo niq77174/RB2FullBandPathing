@@ -16,6 +16,7 @@ public class VocalTrackHandler extends TrackHandler {
         private final static String VOCAL_PERC_NOTE = "n=96";
         private final static int VOCAL_PHRASE_BASE_SCORE = 1000;
         private final static int VOCAL_ACTIVATION_PHRASE_MINIMUM = 600000;
+        private final static int VOCAL_UNREACHABLE = 180000;
 
     private static Set< String > buildVocalHashSet() {
         Set< String > result = new HashSet< String >();
@@ -39,6 +40,7 @@ public class VocalTrackHandler extends TrackHandler {
         int thisPhraseTicks = 0;
         int overdriveStart = 0;
         boolean inOverdrive = false;
+        boolean hitPhraseStart = false;
 
 
         String theLine = null;
@@ -56,7 +58,7 @@ public class VocalTrackHandler extends TrackHandler {
 
                 if (VOCAL_P1_NOTE.equals(note) || VOCAL_P2_NOTE.equals(note)) {
                     // compute activatable regions
-                    computeActivationPoints(lastNoteEnd, ticks, result);
+                    hitPhraseStart = true;
                     continue;
                     // add vocal activation points
                 }
@@ -74,6 +76,12 @@ public class VocalTrackHandler extends TrackHandler {
                 if (!VOCAL_PERC_NOTE.equals(note)) {
                     startTicks.add(new Integer (ticks));
                 }
+
+                if (hitPhraseStart) {
+                    computeActivationPoints(lastNoteEnd, ticks, result);
+                    hitPhraseStart = false;;
+                }
+
                 lastNoteStart = ticks;
             } else if ("Off".equals(onOff)) {
                 tok.nextToken();
@@ -90,6 +98,9 @@ public class VocalTrackHandler extends TrackHandler {
                     double invPhraseTicks = 1.0 / (double) thisPhraseTicks;
 
 
+                    if (SongInfo.DEBUG_OUTPUT) {
+                        System.out.println("phrase end ticks " + lastNoteEnd);
+                    }
                     for (int i = 0; i < startTicks.size(); ++i) {
                         int thisNoteStartTicks = startTicks.get(i).intValue();
                         int thisNoteEndTicks = endTicks.get(i).intValue();
@@ -138,15 +149,19 @@ public class VocalTrackHandler extends TrackHandler {
         return in.readLine();
     }
 
+    // this isn't quite right
     private static void computeActivationPoints(int intervalStart, int intervalEnd, SongInfo result) {
-        System.out.println("computing activations points between " + intervalStart + " and " + intervalEnd);
         BeatInfo currentBeat = result.getNearestBeat(intervalStart);
         int duration = 0;
+        int durationInFirstBeat = 0;
         do {
             int thisBeatTicks = currentBeat.endTicks() - currentBeat.startTicks();
             int ticksInInterval = 
                 Math.min(intervalEnd, currentBeat.endTicks()) -
                 Math.max(intervalStart, currentBeat.startTicks());
+            if (0 == duration) {
+                durationInFirstBeat = (currentBeat.duration()*ticksInInterval) / thisBeatTicks;
+            }
             duration += (currentBeat.duration()*ticksInInterval) / thisBeatTicks;
             currentBeat = result.getBeat(currentBeat.beatNumber()+1);
         } while (intervalEnd > currentBeat.startTicks());
@@ -155,13 +170,24 @@ public class VocalTrackHandler extends TrackHandler {
             return;
         }
 
+        final int vocalWindow = duration - VOCAL_UNREACHABLE;
+
         // I should really do something about phrases ending halfway through a
         // beat. Starting is okay.
         currentBeat = result.getNearestBeat(intervalStart);
+        currentBeat.setInstrumentCanActivate(Instrument.VOCALS, true);
+        int ticksUsed = durationInFirstBeat;
+        while (ticksUsed < vocalWindow) {
+            currentBeat = result.getBeat(currentBeat.beatNumber()+1);
+            currentBeat.setInstrumentCanActivate(Instrument.VOCALS, true);
+            ticksUsed += currentBeat.duration();
+        }
+        /*
         do {
             currentBeat.setInstrumentCanActivate(Instrument.VOCALS, true);
             currentBeat = result.getBeat(currentBeat.beatNumber()+1);
         } while (intervalEnd > currentBeat.startTicks());
+        */
     }
 
     private static void computePhraseScore(ArrayList< Integer > noteStarts, ArrayList< Integer > noteEnds, 

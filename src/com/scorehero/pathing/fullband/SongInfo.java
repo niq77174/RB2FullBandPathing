@@ -12,7 +12,7 @@ import java.util.Random;
 import java.util.StringTokenizer;
 
 public class SongInfo {
-        public final static int SUBBEATS_PER_BEAT = 1 ; // will be larger for some songs
+        public final static int SUBBEATS_PER_BEAT = 1; // will be larger for some songs
         public final static int OVERDRIVE_PHRASE = 8 * SUBBEATS_PER_BEAT; 
         public final static int OVERDRIVE_HALFBAR = 2 * OVERDRIVE_PHRASE;
         public final static int OVERDRIVE_FULLBAR = 4 * OVERDRIVE_PHRASE;
@@ -24,12 +24,16 @@ public class SongInfo {
         private byte lengthOfBeat;
         private TreeMap< Integer, BeatInfo > nearestBeatMap;
 
+        public static boolean DEBUG_OUTPUT;
+
     public SongInfo() {
         this.nearestBeatMap = new TreeMap< Integer, BeatInfo >();
     }
     
     public void addBeat(int startTicks, int endTicks) {
-        //System.out.println("Adding [" + startTicks + ", " + endTicks + ")");
+        if (SongInfo.DEBUG_OUTPUT) {
+            System.out.println("Adding [" + startTicks + ", " + endTicks + ")");
+        }
         BeatInfo newBeat = new BeatInfo(startTicks, endTicks);
         this.beats.add(newBeat);
         newBeat.setBeatNumber((short) (this.beats.size()-1));
@@ -114,14 +118,16 @@ public class SongInfo {
             tok.nextToken();
             String track = tok.nextToken();
             
-            System.out.println("track is: " + track);
+            //System.out.println("track is: " + track);
             if (SongInfo.trackHandlers.containsKey(track)) {
                 TrackHandler trackHandler = SongInfo.trackHandlers.get(track);
                 theLine = trackHandler.handleTrack(in, result);
             } else {
                 if (tok.hasMoreTokens()) {
                     String instrument = tok.nextToken();
-                    System.out.println("instrument is: " + instrument);
+                    if (SongInfo.DEBUG_OUTPUT) {
+                        System.out.println("instrument is: " + instrument);
+                    }
                     TrackHandler trackHandler = trackHandlers.get(instrument);
                     theLine = trackHandler.handleTrack(in, result);
                 } else {
@@ -273,20 +279,41 @@ public class SongInfo {
     public static void main(String[] args) throws Exception {
         String fileName = args[0];
         System.out.println("extracting songInfo from \"" + fileName + "\"");
-        SongInfo info = SongInfo.fromMid2TxtFile(args[0]);
+        if (args.length > 1) {
+            System.out.println("ckecking verbose");
+            if ("--verbose".equals(args[1])) {
+                SongInfo.DEBUG_OUTPUT = true;
+            }
+        }
+        SongInfo info = SongInfo.fromMid2TxtFile(fileName);
         ArrayList< BandState > bandStates = new ArrayList< BandState >();
 
-        /*
         for (BeatInfo beatInfo : info.beats()) {
             System.out.println(beatInfo + "\n");
         }
-        */
 
         /*
         for (int i = 0; i < info.beats().size(); ++i){
-            info.getBeat(i).computeReachableStates(bandStates);
-            System.out.println("Beat " + i + " has " + bandStates.size() + " states");
-            bandStates.clear();
+            int stateCount = 0;
+            BandState currentState = new BandState();
+            BandState nextState = new BandState();
+            BeatInfo currentBeat = info.getBeat(i);
+            System.out.println(currentBeat + "\n");
+            final int reachableStateCount = currentBeat.computeReachableStateCount();
+            System.out.println("state count estimate: " + reachableStateCount);
+            //currentState.setBits(BeatInfo.DEBUG_STATE);
+            currentState.setBits(Integer.MIN_VALUE);
+            if (currentBeat.isValidState(currentState)) {
+                System.out.println(currentState);
+                ++stateCount;
+            }
+            while (currentBeat.computeNextReachableState(currentState, nextState)) {
+                ++stateCount;
+                if (0 == stateCount % 6) {
+                }
+                nextState.copyTo(currentState);
+            }
+            System.out.println("Beat " + i + " has " + stateCount + " states");
         }
         */
 
@@ -294,34 +321,34 @@ public class SongInfo {
 
         int totalNextStates = 0;
         for(int i = 0; i < 20; ++i) {
-            int currentBeatNum = rng.nextInt(info.beats().size());
+            //int currentBeatNum = rng.nextInt(info.beats().size());
+            int currentBeatNum = 88;
             BeatInfo currentBeat = info.beats().get(currentBeatNum);
             System.out.println("next beat");
             System.out.println(currentBeat);
             currentBeat.computeReachableStates(bandStates);
             //ArrayList< BandState > nextStates = new ArrayList< BandState > ();
-            for (int j = 0; j < 20; ++j) {
+            for (BandState theState : bandStates) {
                 ArrayList< BandState > nextStates = new ArrayList< BandState >(256);
 
                 for (int k = 0; k < 256; ++k) {
                     nextStates.add(new BandState());
                 }
 
-                BandState theState = bandStates.get(rng.nextInt(bandStates.size()));
+                //BandState theState = bandStates.get(0);
+                //BandState theState = bandStates.get(rng.nextInt(bandStates.size()));
                 System.out.println("current bandstates");
                 System.out.println(theState);
                 int count = currentBeat.computeReachableNextStatesInPlace(theState, nextStates);
                 System.out.println("next bandstates");
-                totalNextStates += nextStates.size();
                 for (int k = 0; k < count; ++k) {
-                    System.out.println(nextStates.get(i));
+                    System.out.println(nextStates.get(k));
                 }
                 System.out.println("====");
                 nextStates.clear();
             }
             bandStates.clear();
         }
-        System.out.println("total next states: " + totalNextStates);
     }
 
 }

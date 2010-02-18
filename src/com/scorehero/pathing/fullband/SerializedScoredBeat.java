@@ -17,8 +17,6 @@ public class SerializedScoredBeat extends StandardScoredBeat implements Serializ
 
     public SerializedScoredBeat() {
         super();
-        this.scoredBandStateMap = 
-            new TreeMap< Integer, Integer >( );
     }
 
 

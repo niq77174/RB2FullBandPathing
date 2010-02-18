@@ -9,14 +9,20 @@ public class BandState implements Cloneable {
     private int bitSet;
 
     private final static int METER_OFFSETS[] = {
-        4, 11, 18, 25
+        21, 0, 7, 14
     };
 
-    private final static int ALL_OD_BITS = 0x0f;
+    private final static int OD_BITS_OFFSET = 28;
 
     private final static int OD_BITS[] = {
-        0x1, 0x2, 0x4, 0x8
+        0x80000000,
+        0x40000000,
+        0x20000000,
+        0x10000000
     };
+
+    private final static int ALL_OD_BITS = 0xf0000000;
+
 
     private final static int METER_BITS[] = {
         0x7f <<  METER_OFFSETS[0],
@@ -69,6 +75,7 @@ public class BandState implements Cloneable {
         for (int i = 0; i < Instrument.INSTRUMENT_COUNT.index(); ++i) {
             if (this.instrumentInOverdrive(i)) {
                 byte newMeter = (byte) (this.getInstrumentMeter(i) - 1);
+                newMeter = (byte) (newMeter >= 0 ? newMeter : 0);
                 this.setInstrumentMeter(i, newMeter);
                 if (0 == newMeter) {
                     this.setInstrumentInOverdrive(i, false);
@@ -146,6 +153,7 @@ public class BandState implements Cloneable {
     }
 
     public void setInstrumentMeter(int instrument, byte value) {
+        //assert(value <= SongInfo.OVERDRIVE_FULLBAR);
         this.bitSet &= INV_METER_BITS[instrument];
         this.bitSet |= (value << METER_OFFSETS[instrument]);
     }
@@ -169,7 +177,7 @@ public class BandState implements Cloneable {
     }
 
     public boolean instrumentInOverdrive(int instrument) {
-        return ((this.bitSet & OD_BITS[instrument]) > 0);
+        return ((this.bitSet & OD_BITS[instrument]) != 0);
     }
 
     public boolean instrumentInOverdrive(Instrument instrument) {
@@ -178,6 +186,21 @@ public class BandState implements Cloneable {
 
     public boolean instrumentCanActivate(Instrument instrument) {
         return (!this.instrumentInOverdrive(instrument) && this.getInstrumentMeter(instrument) >= SongInfo.OVERDRIVE_HALFBAR);
+    }
+
+    public byte odBits() {
+        return (byte) ((this.bitSet & ALL_OD_BITS) >> OD_BITS_OFFSET);
+    }
+
+    public void setODBits(byte odBits) {
+        odBits &= ALL_OD_BITS;
+        final int oldHighBits = this.bitSet & ~ALL_OD_BITS;
+        this.bitSet &= ~ALL_OD_BITS;
+        this.bitSet |= odBits;
+    }
+
+    public void setBits(int bits) {
+        this.bitSet = bits;
     }
 
     public Object clone() throws CloneNotSupportedException {

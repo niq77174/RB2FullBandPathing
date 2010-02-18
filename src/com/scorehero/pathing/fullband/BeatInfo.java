@@ -54,6 +54,10 @@ public class BeatInfo implements Cloneable {
         return this.measureNumber + this.beatWithinMeasure;
     }
 
+    public boolean isDownBeat() {
+        return 0.0 == this.beatWithinMeasure;
+    }
+
     public int beatNumber() {
         return this.beatNumber;
     }
@@ -92,8 +96,12 @@ public class BeatInfo implements Cloneable {
         this.whammy[instrument.index()] = whammy;
     }
 
-    public short maximumOverdrive(Instrument instrument) {
-        return this.maximumOverdriveBar[instrument.index()];
+    public byte maximumOverdrive(int instrument) {
+        return this.maximumOverdriveBar[instrument];
+    }
+
+    public byte maximumOverdrive(Instrument instrument) {
+        return this.maximumOverdrive(instrument.index());
     }
 
     public void setIsDrumFill(boolean isDrumFill) {
@@ -125,9 +133,19 @@ public class BeatInfo implements Cloneable {
     }
 
     public boolean instrumentCanActivate(int instrumentIndex, BandState bandState) {
-        return ((!bandState.instrumentInOverdrive(instrumentIndex)) &&
-                (this.instrumentCanActivate[instrumentIndex]) && 
-                (bandState.getInstrumentMeter(instrumentIndex) >= SongInfo.OVERDRIVE_HALFBAR));
+        final byte meter = bandState.getInstrumentMeter(instrumentIndex);
+        boolean canActivate =
+            (!bandState.instrumentInOverdrive(instrumentIndex)) &&
+            (this.instrumentCanActivate[instrumentIndex]) && 
+            (meter >= SongInfo.OVERDRIVE_HALFBAR);
+
+        if (canActivate &&
+            (Instrument.DRUMS.index() == instrumentIndex) &&
+            (SongInfo.OVERDRIVE_HALFBAR == meter) &&
+            (this.odToFillDuration() < DrumTrackHandler.MIN_FILL_DURATION)) {
+            return false;
+        }
+        return canActivate;
     }
 
     public void setInstrumentCanActivate(Instrument instrument, boolean value) {
@@ -143,9 +161,13 @@ public class BeatInfo implements Cloneable {
         this.isReachableActiveMeter[instrument.index()][meter] = true;
     }
 
-    public boolean isReachableActiveMeter(Instrument instrument,
-                                    int meter) {
-        return this.isReachableActiveMeter[instrument.index()][meter];
+    public boolean isReachableActiveMeter(Instrument instrument, byte meter) {
+        return this.isReachableActiveMeter(instrument.index(), meter);
+    }
+
+    public boolean isReachableActiveMeter(int instrument, byte meter) {
+        return this.isReachableActiveMeter[instrument][meter];
+
     }
 
     public boolean hasSqueezeAvailable(Instrument instrument) {
@@ -320,6 +342,102 @@ public class BeatInfo implements Cloneable {
 
         System.out.println("no reachable active meter?!?");
         return 0;
+    }
+
+    public int computeReachableStateCount() {
+        int drumStates = this.maximumOverdrive(Instrument.DRUMS) / SongInfo.OVERDRIVE_PHRASE + 1;
+        drumStates += this.computeReachableActiveMeterCount(Instrument.DRUMS);
+        int vocalStates = this.maximumOverdrive(Instrument.VOCALS) / SongInfo.OVERDRIVE_PHRASE + 1;
+        vocalStates += this.computeReachableActiveMeterCount(Instrument.VOCALS);
+
+
+        int guitarStates = this.maximumOverdrive(Instrument.GUITAR) + 1;
+        guitarStates += this.instrumentCanActivate(Instrument.GUITAR) ? this.maximumOverdrive(Instrument.GUITAR) : 0;
+        int bassStates = this.maximumOverdrive(Instrument.BASS) + 1;
+        bassStates += this.instrumentCanActivate(Instrument.BASS) ? this.maximumOverdrive(Instrument.BASS) : 0;
+
+        return guitarStates* drumStates * vocalStates * bassStates;
+    }
+
+    private static int stateCount = 0;
+    public boolean computeNextReachableState(BandState currentState,
+                                             BandState nextState) {
+        for(int stateBits = currentState.serializedData()+1; stateBits < Integer.MAX_VALUE; ++stateBits) {
+            nextState.setBits(stateBits);
+            if (0 == stateBits % 67108864) {
+                //System.out.println("Trying bandstate:");
+                //System.out.println(nextState);
+            }
+            if (this.isValidState(nextState)) {
+                return true;
+            }
+        }
+
+        nextState.setBits(Integer.MAX_VALUE);
+        return false;
+    }
+
+    public final static int DEBUG_STATE = 0xC2000004;
+
+    private static void debugCurrentState() {
+        int x = 0;
+    }
+
+    public boolean isValidState(BandState currentState) {
+        if (DEBUG_STATE == currentState.serializedData()) {
+            debugCurrentState();
+        }
+
+        for (int i = 0; i < Instrument.INSTRUMENT_COUNT.index(); ++i) {
+            byte currentMeter = currentState.getInstrumentMeter(i);
+            boolean currentOverdrive = currentState.instrumentInOverdrive(i);
+
+            // obviously, meter has to be positive
+            if (currentMeter < 0) {
+                return false;
+            }
+
+            if (currentMeter > this.maximumOverdrive(i)) {
+                return false;
+            }
+
+            if (currentOverdrive && !this.isReachableActiveMeter(i, currentMeter)) {
+                return false;
+            }
+
+            if (currentOverdrive && (0 == currentMeter)) {
+                return false;
+            }
+
+            /*
+            if (currentOverdrive && (currentMeter < SongInfo.OVERDRIVE_HALFBAR)) {
+                return false;
+            }
+            */
+        }
+
+        if (!currentState.instrumentInOverdrive(Instrument.DRUMS) &&
+            (0 != currentState.getInstrumentMeter(Instrument.DRUMS) % SongInfo.OVERDRIVE_PHRASE)) {
+            return false;
+        }
+
+        if (!currentState.instrumentInOverdrive(Instrument.VOCALS) &&
+            (0 != currentState.getInstrumentMeter(Instrument.VOCALS) % SongInfo.OVERDRIVE_PHRASE)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private int computeReachableActiveMeterCount(Instrument instrument) {
+        int result = 0;
+        for (int i = 0; i < SongInfo.OVERDRIVE_FULLBAR+1; ++i) {
+            if (this.isReachableActiveMeter(instrument, (byte) i)) {
+                ++result;
+            }
+        }
+
+        return result;
     }
 
     public void computeReachableStates(Collection< BandState > results) throws Exception {
@@ -630,7 +748,8 @@ public class BeatInfo implements Cloneable {
                     continue;
                 }
 
-                BandState newState = results.get(newStates+currentStateCount);
+                final int newStateIndex = newStates+currentStateCount;
+                BandState newState = results.get(newStateIndex);
                 oldState.copyTo(newState);
                 newState.applyWhammy(Instrument.BASS, this);
                 ++newStates;

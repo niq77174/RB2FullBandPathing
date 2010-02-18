@@ -3,18 +3,20 @@ package com.scorehero.pathing.fullband;
 import java.util.Collection;
 import java.util.ArrayList;
 
-public class InPlaceOptimizer {
+public class NoTempCacheOptimizer {
     private static boolean debugOutput = false;
-    public InPlaceOptimizer() {
+    public NoTempCacheOptimizer() {
     }
 
     public void optimize(SongInfo songInfo, 
                          Collection< BandState > result) throws Exception {
+
         ScoredBeat nextBeat = new StubScoredBeat();
         for (int i = 0; i < songInfo.beats().size(); ++i) {
             int beatNumber = songInfo.beats().size()-1-i;
             BeatInfo currentBeat = songInfo.beats().get(beatNumber);
-            ScoredBeat currentScoredBeat = this.optimizeBeat(currentBeat, nextBeat);
+            
+            ScoredBeat currentScoredBeat = this.optimizeBeat(songInfo.title(), currentBeat, nextBeat);
             // We're done with the next beat
             nextBeat.flush(songInfo.title(), beatNumber+1);
             nextBeat.close();
@@ -58,65 +60,42 @@ public class InPlaceOptimizer {
         // advance
     }
 
-    private final static int MAX_BAND_STATES = 256;
-
-    private ScoredBeat optimizeBeat(BeatInfo beatInfo, ScoredBeat nextBeat) throws Exception {
-        ScoredBeat result = new StandardScoredBeat();
-        System.out.println("Optimizing " + beatInfo);
-        final int reachableStateCount = beatInfo.computeReachableStateCount();
-        System.out.println("state count estimate: " + beatInfo);
-        ArrayList< BandState > bandStates =  new ArrayList< BandState >();
+    private ScoredBeat optimizeBeat(String title, BeatInfo beatInfo, ScoredBeat nextBeat) throws Exception {
+        ScoredBeat result = null;
+            //new BDBScoredBeat(title, beatInfo.beatNumber(), false);
+        ArrayList< BandState > bandStates =  new ArrayList< BandState>();
         beatInfo.computeReachableStates(bandStates);
-        int totalNextStateCount = 0;
-        ArrayList< BandState > nextBeatStates = new ArrayList< BandState >(MAX_BAND_STATES);
-
-        for (int i = 0; i < MAX_BAND_STATES; ++i) {
-            nextBeatStates.add(new BandState());
-        }
-
-        BandState bandState = (BandState) BandState.INITIAL_BANDSTATE.clone();
-        BandState nextState = (BandState) BandState.INITIAL_BANDSTATE.clone();
-        boolean hasNextReachableMeter = true;
-
-        int beatStateCount = 0;
-
-        while (hasNextReachableMeter) {
-            int nextStateCount = beatInfo.computeReachableNextStatesInPlace(bandState, nextBeatStates);
-            totalNextStateCount += nextStateCount;
+        System.out.println("Optimizing " + beatInfo);
+        System.out.println("Current beat state count: " + bandStates.size());
+        int nextBeatStateCount = 0;
+        for (BandState bandState : bandStates) {
+            ArrayList< BandState > nextStates = new ArrayList< BandState >();
+            beatInfo.computeReachableNextStates(bandState, nextStates);
+            nextBeatStateCount += nextStates.size();
 
             int score = 0;
-            for (int i = 0; i < nextStateCount; ++i) {
-                BandState nextBeatState = nextBeatStates.get(i);
-                int beatScore = beatInfo.score(bandState, nextBeatState);
-                score = Math.max(score, beatScore + nextBeat.getScore(nextBeatState));
+            for (BandState nextState: nextStates) {
+                int beatScore = beatInfo.score(bandState, nextState);
+                score = Math.max(score, beatScore + nextBeat.getScore(nextState));
             }
 
             result.addScore(bandState, score);
-
-            ++beatStateCount;
-            hasNextReachableMeter = beatInfo.computeNextReachableState(bandState, nextState);
-            nextState.copyTo(bandState);
         }
-
-        System.out.println("Actual beat state count: " + beatStateCount);
-        System.out.println("Scores calculated: " + totalNextStateCount);
-        System.out.println("Scores/state: " + ((double) totalNextStateCount)/((double) bandStates.size())); 
+        System.out.println("Scores calculated: " + nextBeatStateCount);
+        System.out.println("Scores/state: " + ((double) nextBeatStateCount)/((double) bandStates.size())); 
         return result;
     }
 
-
     public static void main(String[] args) throws Exception {
-        InPlaceOptimizer.debugOutput = true;
+        NoTempCacheOptimizer.debugOutput = true;
 
         ArrayList< BandState > path = new ArrayList< BandState >();
         SongInfo song = SongInfo.fromMid2TxtFile(args[0]);
-        /*
         for (BeatInfo beatInfo : song.beats()) {
             System.out.println(beatInfo + "\n");
         }
-        */
 
-        InPlaceOptimizer optimizer = new InPlaceOptimizer();
+        NoTempCacheOptimizer optimizer = new NoTempCacheOptimizer();
         optimizer.optimize(song, path);
 
         System.out.println("beat 0");

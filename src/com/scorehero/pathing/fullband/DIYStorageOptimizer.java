@@ -24,6 +24,7 @@ public class DIYStorageOptimizer {
         nextBeat.flush(songInfo.title(), 0);
 
         // read back the first scored beat from disk
+        /*
         ScoredBeat firstBeat = ScoredBeat.fromFile(songInfo.title(), 0);
         // set current state to default state
         BandState currentState = (BandState) BandState.INITIAL_BANDSTATE.clone();
@@ -53,6 +54,7 @@ public class DIYStorageOptimizer {
 
             result.add(currentState);
         }
+        */
 
         // set state to their states
         // advance
@@ -61,11 +63,58 @@ public class DIYStorageOptimizer {
     private final static int MAX_BAND_STATES = 256;
 
     private ScoredBeat optimizeBeat(BeatInfo beatInfo, ScoredBeat nextBeat) throws Exception {
-        ScoredBeat result = new HandRolledSerializedScoredBeat();
-        ArrayList< BandState > bandStates =  new ArrayList< BandState>();
-        beatInfo.computeReachableStates(bandStates);
+        ScoredBeat result = new MultiLayeredScoredBeat();
         System.out.println("Optimizing " + beatInfo);
-        System.out.println("Current beat state count: " + bandStates.size());
+        /*
+
+        final int reachableStateCount = beatInfo.computeReachableStateCount();
+        System.out.println("state count estimate: " + reachableStateCount);
+        ArrayList< BandState > bandStates =  new ArrayList< BandState >();
+        beatInfo.computeReachableStates(bandStates);
+        int totalNextStateCount = 0;
+        ArrayList< BandState > nextBeatStates = new ArrayList< BandState >(MAX_BAND_STATES);
+
+        for (int i = 0; i < MAX_BAND_STATES; ++i) {
+            nextBeatStates.add(new BandState());
+        }
+
+        BandState bandState = (BandState) BandState.INITIAL_BANDSTATE.clone();
+        BandState nextState = (BandState) BandState.INITIAL_BANDSTATE.clone();
+        boolean hasNextReachableState = true;
+
+        int beatStateCount = 0;
+
+        while (hasNextReachableState) {
+            int nextStateCount = beatInfo.computeReachableNextStatesInPlace(bandState, nextBeatStates);
+            totalNextStateCount += nextStateCount;
+
+            int score = 0;
+            for (int i = 0; i < nextStateCount; ++i) {
+                BandState nextBeatState = nextBeatStates.get(i);
+                int beatScore = beatInfo.score(bandState, nextBeatState);
+                score = Math.max(score, beatScore + nextBeat.getScore(bandState, nextBeatState));
+            }
+
+            result.addScore(bandState, score);
+
+
+            ++beatStateCount;
+            hasNextReachableState = beatInfo.computeNextReachableState(bandState, nextState);
+            nextState.copyTo(bandState);
+        }
+
+        System.out.println("Actual beat state count: " + beatStateCount);
+        System.out.println("Scores calculated: " + totalNextStateCount);
+        System.out.println("Scores/state: " + ((double) totalNextStateCount)/((double) bandStates.size())); 
+        return result;
+        */
+
+        final int reachableStateCount = beatInfo.computeReachableStateCount();
+        System.out.println("state count estimate: " + reachableStateCount);
+        ArrayList< BandState > bandStates =  new ArrayList< BandState >();
+        beatInfo.computeReachableStates(bandStates);
+        System.out.println("Actual beat state count: " + bandStates.size());
+
         int totalNextStateCount = 0;
         ArrayList< BandState > nextStates = new ArrayList< BandState >(MAX_BAND_STATES);
 

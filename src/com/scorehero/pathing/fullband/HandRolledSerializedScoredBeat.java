@@ -15,17 +15,16 @@ import java.io.OutputStream;
 import java.io.FileOutputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
+import it.unimi.dsi.fastutil.objects.ObjectSortedSet;
 
 public class HandRolledSerializedScoredBeat extends StandardScoredBeat implements Serializable{
 
     public HandRolledSerializedScoredBeat() {
         super();
-        this.scoredBandStateMap = 
-            new TreeMap< Integer, Integer >( );
     }
 
     public void flush(String title, int beatNumber) throws Exception {
-        System.out.println("flushing " + this.scoredBandStateMap.size() +  " elements");
         OutputStream stream = new BufferedOutputStream(new FileOutputStream(getFileName(title, beatNumber)));
         System.out.println("Dumping " + this.scoredBandStateMap.size() +  " elements");
         byte[] buf = new byte[4];
@@ -33,14 +32,15 @@ public class HandRolledSerializedScoredBeat extends StandardScoredBeat implement
 
         try {
             // header tells us how many elements
-            Util.toByteArray(this.scoredBandStateMap.size(), buf);
-            stream.write(buf);
+            // not needed; can be inferred from file size
+            //Util.toByteArray(this.scoredBandStateMap.size(), buf);
+            //stream.write(buf);
 
-            Set< Map.Entry< Integer, Integer > > entrySet = this.scoredBandStateMap.entrySet();
-            for (Map.Entry< Integer, Integer > entry : entrySet) {
-                Util.toByteArray(entry.getKey().intValue(), buf);
+            ObjectSortedSet< Int2IntMap.Entry > entrySet = this.scoredBandStateMap.int2IntEntrySet();
+            for (Int2IntMap.Entry entry : entrySet) {
+                Util.toByteArray(entry.getIntKey(), buf);
                 stream.write(buf);
-                Util.toByteArray(entry.getValue().intValue(), buf);
+                Util.toByteArray(entry.getIntValue(), buf);
                 stream.write(buf);
             }
 

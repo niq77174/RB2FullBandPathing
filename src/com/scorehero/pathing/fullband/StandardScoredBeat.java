@@ -4,42 +4,44 @@ import java.util.TreeMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.Collection;
+import java.util.Comparator;
 import com.sleepycat.bind.tuple.IntegerBinding;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.OperationStatus;
 import com.sleepycat.je.StatsConfig;
+import it.unimi.dsi.fastutil.ints.Int2IntSortedMap;
+import it.unimi.dsi.fastutil.ints.Int2IntRBTreeMap;
 
 public class StandardScoredBeat extends ScoredBeat {
-    protected TreeMap< Integer, Integer> scoredBandStateMap;
+    protected Int2IntSortedMap scoredBandStateMap;
+    private final static Comparator< Integer > INTEGER_COMPARATOR = new Comparator< Integer >() {
+        public int compare(Integer left, Integer right) {
+            return left.compareTo(right);
+        }
+    };
 
     public StandardScoredBeat() {
         super();
-        this.scoredBandStateMap = new TreeMap< Integer, Integer >( );
+        this.scoredBandStateMap = new Int2IntRBTreeMap();
+        this.scoredBandStateMap.defaultReturnValue(-1);
     }
 
     public void addScore(BandState bandState, int score) {
-        Integer key = new Integer(bandState.serializedData());
-        Integer oldScoreObj = this.scoredBandStateMap.get(key);
-        int oldScore = (null == oldScoreObj) ? 0 : oldScoreObj.intValue();
+        int key = bandState.serializedData();
+        int oldScore = this.scoredBandStateMap.get(key);
 
         if ((score > oldScore) || (0 == score)) {
-            this.scoredBandStateMap.put(key, new Integer(score));
-            assert(this.scoredBandStateMap.size() > 0);
+            this.scoredBandStateMap.put(key, score);
         }
     }
 
     public int getScore(BandState bandState) {
 
-        Integer scoredBandState = scoredBandStateMap.get(new Integer(bandState.serializedData()));
-        if (null == scoredBandState) {
-            System.out.println("ruh-roh! couldn't find score!");
-            System.out.println(bandState);
-            // ruh-roh! This should never happen.
-        }
+        int scoredBandState = scoredBandStateMap.get(bandState.serializedData());
         
-        return scoredBandState.intValue();
+        return scoredBandState;
     }
 
     public void flush(String title, int beatNumber) throws Exception {
