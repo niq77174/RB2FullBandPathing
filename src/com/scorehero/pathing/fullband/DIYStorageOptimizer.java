@@ -2,15 +2,35 @@ package com.scorehero.pathing.fullband;
 
 import java.util.Collection;
 import java.util.ArrayList;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 public class DIYStorageOptimizer {
     private static boolean debugOutput = false;
+
+    private final static int BAND_STATES_SIZES[] = {
+                0,
+          2097152,
+         16777216,
+         50331648,
+        100663296
+    };
+
+    private IntArrayList bandStates;
+
     public DIYStorageOptimizer() {
+        this(SongInfo.SUBBEATS_PER_BEAT);
+    }
+
+    public DIYStorageOptimizer(int subBeatsPerBeat) {
+        this.bandStates = new IntArrayList(BAND_STATES_SIZES[subBeatsPerBeat]);
     }
 
     public void optimize(SongInfo songInfo, 
                          Collection< BandState > result) throws Exception {
         ScoredBeat nextBeat = new StubScoredBeat();
+        long maxBeatTime = 0;
+        final long startTime = System.currentTimeMillis();
+        long lastBeatEndTime = startTime;
         for (int i = 0; i < songInfo.beats().size(); ++i) {
             int beatNumber = songInfo.beats().size()-1-i;
             BeatInfo currentBeat = songInfo.beats().get(beatNumber);
@@ -20,8 +40,28 @@ public class DIYStorageOptimizer {
             nextBeat.close();
             // and walk backwards a step
             nextBeat = currentScoredBeat;
+            final long beatEndTime = System.currentTimeMillis();
+            final long thisBeatTime = beatEndTime - lastBeatEndTime;
+            maxBeatTime = Math.max(maxBeatTime, thisBeatTime);
+            lastBeatEndTime = beatEndTime;
+
+            double averageBeatTime =  0.001*((double) beatEndTime - startTime)/((double) (i+1));
+            System.out.println("Average beat time: " + averageBeatTime);
+            System.out.println("Peak beat time: " + (maxBeatTime / 1000) + "." + (maxBeatTime % 1000));
+            final long totalTime = beatEndTime - startTime;
+            System.out.println("Total time: " + (totalTime / 1000) + "." + (totalTime % 1000));
         }
         nextBeat.flush(songInfo.title(), 0);
+        final long beatEndTime = System.currentTimeMillis();
+        final long thisBeatTime = beatEndTime - lastBeatEndTime;
+        maxBeatTime = Math.max(maxBeatTime, thisBeatTime);
+
+        double averageBeatTime =  0.001*((double) beatEndTime - startTime)/((double) songInfo.beats().size());
+        System.out.println("Average beat time: " + averageBeatTime);
+        System.out.println("Peak beat time: " + (maxBeatTime / 1000) + "." + (maxBeatTime % 1000));
+        final long totalTime = beatEndTime - startTime;
+        System.out.println("Total time: " + (totalTime / 1000) + "." + (totalTime % 1000));
+
 
         // read back the first scored beat from disk
         /*
@@ -111,9 +151,11 @@ public class DIYStorageOptimizer {
 
         final int reachableStateCount = beatInfo.computeReachableStateCount();
         System.out.println("state count estimate: " + reachableStateCount);
-        ArrayList< BandState > bandStates =  new ArrayList< BandState >();
-        beatInfo.computeReachableStates(bandStates);
-        System.out.println("Actual beat state count: " + bandStates.size());
+        //int paddedStateCount = (int) (1.3 * reachableStateCount);
+        //this.bandStates.ensureCapacity(paddedStateCount);
+        this.bandStates.clear();
+        int actualStateCount = beatInfo.computeReachableStates(this.bandStates);
+        System.out.println("Actual beat state count: " + actualStateCount);
 
         int totalNextStateCount = 0;
         ArrayList< BandState > nextStates = new ArrayList< BandState >(MAX_BAND_STATES);
@@ -122,7 +164,9 @@ public class DIYStorageOptimizer {
             nextStates.add(new BandState());
         }
 
-        for (BandState bandState : bandStates) {
+        BandState bandState = new BandState();
+        for (int j = 0; j < actualStateCount; ++j) {
+            bandState.setBits(this.bandStates.get(j));
             int nextStateCount = beatInfo.computeReachableNextStatesInPlace(bandState, nextStates);
             totalNextStateCount += nextStateCount;
 
@@ -137,7 +181,7 @@ public class DIYStorageOptimizer {
         }
 
         System.out.println("Scores calculated: " + totalNextStateCount);
-        System.out.println("Scores/state: " + ((double) totalNextStateCount)/((double) bandStates.size())); 
+        System.out.println("Scores/state: " + ((double) totalNextStateCount)/((double) actualStateCount)); 
         return result;
     }
 

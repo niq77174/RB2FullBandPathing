@@ -78,7 +78,9 @@ public class BandState implements Cloneable {
                 newMeter = (byte) (newMeter >= 0 ? newMeter : 0);
                 this.setInstrumentMeter(i, newMeter);
                 if (0 == newMeter) {
-                    this.setInstrumentInOverdrive(i, false);
+                    if (i != Instrument.DRUMS.index() || !squeezeDrums) {
+                        this.setInstrumentInOverdrive(i, false);
+                    }
                 }
             }
         }

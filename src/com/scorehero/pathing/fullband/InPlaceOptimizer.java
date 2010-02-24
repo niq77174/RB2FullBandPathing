@@ -66,7 +66,7 @@ public class InPlaceOptimizer {
         final int reachableStateCount = beatInfo.computeReachableStateCount();
         System.out.println("state count estimate: " + beatInfo);
         ArrayList< BandState > bandStates =  new ArrayList< BandState >();
-        beatInfo.computeReachableStates(bandStates);
+        //beatInfo.computeReachableStates(bandStates);
         int totalNextStateCount = 0;
         ArrayList< BandState > nextBeatStates = new ArrayList< BandState >(MAX_BAND_STATES);
 

@@ -61,13 +61,13 @@ public class Optimizer {
     private ScoredBeat optimizeBeat(BeatInfo beatInfo, ScoredBeat nextBeat) throws Exception {
         ScoredBeat result = new StandardScoredBeat();
         ArrayList< BandState > bandStates =  new ArrayList< BandState>();
-        beatInfo.computeReachableStates(bandStates);
+        //beatInfo.computeReachableStates(bandStates);
         System.out.println("Optimizing " + beatInfo);
         System.out.println("Current beat state count: " + bandStates.size());
         int nextBeatStateCount = 0;
         for (BandState bandState : bandStates) {
             ArrayList< BandState > nextStates = new ArrayList< BandState >();
-            beatInfo.computeReachableNextStates(bandState, nextStates);
+            //beatInfo.computeReachableNextStates(bandState, nextStates);
             nextBeatStateCount += nextStates.size();
 
             int score = 0;

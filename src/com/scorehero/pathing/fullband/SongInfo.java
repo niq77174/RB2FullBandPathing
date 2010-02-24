@@ -12,10 +12,11 @@ import java.util.Random;
 import java.util.StringTokenizer;
 
 public class SongInfo {
-        public final static int SUBBEATS_PER_BEAT = 1; // will be larger for some songs
+        public final static int SUBBEATS_PER_BEAT = 2; // will be larger for some songs
         public final static int OVERDRIVE_PHRASE = 8 * SUBBEATS_PER_BEAT; 
         public final static int OVERDRIVE_HALFBAR = 2 * OVERDRIVE_PHRASE;
         public final static int OVERDRIVE_FULLBAR = 4 * OVERDRIVE_PHRASE;
+
         private final static HashMap< String, TrackHandler > trackHandlers = buildTrackHandlerHash();
 
         private ArrayList< BeatInfo > beats;
@@ -32,7 +33,7 @@ public class SongInfo {
     
     public void addBeat(int startTicks, int endTicks) {
         if (SongInfo.DEBUG_OUTPUT) {
-            System.out.println("Adding [" + startTicks + ", " + endTicks + ")");
+            //System.out.println("Adding [" + startTicks + ", " + endTicks + ")");
         }
         BeatInfo newBeat = new BeatInfo(startTicks, endTicks);
         this.beats.add(newBeat);
@@ -250,11 +251,12 @@ public class SongInfo {
                     // we always want to assume the "squeeze in" for the sake of
                     // reachability. So we check for phrase endings before we
                     // check to see if we're done
+                    if (SongInfo.DEBUG_OUTPUT) {
+                        System.out.println("Marking " + instrument + " meter " + overdriveRemaining + " on beat " + beatInOverdrive.measureNumber());
+                    }
                     beatInOverdrive.canBeInOverdrive[instrument.index()] = true;
                     beatInOverdrive.setReachableMeter(instrument, overdriveRemaining);
-                    if (beatInOverdrive.hasLastOverdriveNote(instrument) &&
-                        ((beatInOverdrive != currentBeat) ||
-                          beatInOverdrive.isVocalPhraseEnd())) {
+                    if (beatInOverdrive.hasLastOverdriveNote(instrument)) {
                         overdriveRemaining += OVERDRIVE_PHRASE;
                     }
 
@@ -266,9 +268,29 @@ public class SongInfo {
 
                     ++currentBeatNumber;
                     --overdriveRemaining;
-
                     overdriveRemaining = (short) Math.min(overdriveRemaining, OVERDRIVE_FULLBAR);
-                } while ((overdriveRemaining > 0) && (currentBeatNumber < songLength));
+                    if (0 == overdriveRemaining && beatInOverdrive.hasSqueezeAvailable(instrument)) {
+                        assert(currentBeatNumber < songLength);
+                        BeatInfo squeezeBeat = this.beats.get(currentBeatNumber);
+                        assert(squeezeBeat.hasLastOverdriveNote(instrument));
+                        if (SongInfo.DEBUG_OUTPUT) {
+                            System.out.println("Squeezing " + instrument + " at " + squeezeBeat.measureNumber());
+                        }
+                        // the hand full of cases where "0" is a valid amount of overdrive for drums
+                        assert(squeezeBeat.hasLastOverdriveNote(instrument));
+                        squeezeBeat.canBeInOverdrive[instrument.index()] = true;
+                        squeezeBeat.setReachableMeter(instrument, overdriveRemaining);
+                        overdriveRemaining += OVERDRIVE_PHRASE;
+                        if (squeezeBeat.hasLastBeatOfUnisonBonus() &&
+                            !Instrument.VOCALS.equals(instrument)) {
+                            overdriveRemaining += OVERDRIVE_PHRASE;
+                        }
+
+                        ++currentBeatNumber;
+                        --overdriveRemaining;
+                    }
+                } while ((currentBeatNumber < songLength) && (overdriveRemaining > 0));
+                // while ((overdriveRemaining > 0) && (currentBeatNumber < songLength));
 
                 initialOverdrive -= OVERDRIVE_PHRASE;
             } while (initialOverdrive >= OVERDRIVE_HALFBAR);
@@ -317,6 +339,7 @@ public class SongInfo {
         }
         */
 
+        /*
         Random rng = new Random();
 
         int totalNextStates = 0;
@@ -349,6 +372,7 @@ public class SongInfo {
             }
             bandStates.clear();
         }
+        */
     }
 
 }

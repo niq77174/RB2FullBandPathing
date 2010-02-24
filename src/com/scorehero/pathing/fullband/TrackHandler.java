@@ -10,7 +10,7 @@ public abstract class TrackHandler {
     public final static int TICKS_PER_FRETBOARD_BEAT = 480;
     public final static int SIXTEENTH_TICKS = TICKS_PER_FRETBOARD_BEAT / 4;;
     public final static int TICKS_PER_POINT = TICKS_PER_FRETBOARD_BEAT / 12;
-    public final static double WHAMMY_PER_TICK = 0.00226875;
+    public final static double WHAMMY_PER_TICK = SongInfo.SUBBEATS_PER_BEAT * 0.00226875;
 
     private static Set< String > buildExpertNotes() {
         Set< String > result = new HashSet< String >();

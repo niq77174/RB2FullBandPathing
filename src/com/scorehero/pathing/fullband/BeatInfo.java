@@ -4,6 +4,7 @@ import java.util.StringTokenizer;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collection;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 public class BeatInfo implements Cloneable {
         short beatNumber;
@@ -26,6 +27,7 @@ public class BeatInfo implements Cloneable {
         boolean isVocalPhraseEnd = false;
         int duration = 0; // microseconds
         private int odToFillDuration = 0;
+        boolean hasSqueezeAvailable[] = new boolean[Instrument.INSTRUMENT_COUNT.index()];
 
     public BeatInfo() {
         this(0,0);
@@ -41,6 +43,10 @@ public class BeatInfo implements Cloneable {
         for (int i = 1; i < SongInfo.OVERDRIVE_FULLBAR + 1; ++i) {
             this.isReachableActiveMeter[Instrument.GUITAR.index()][i] =
             this.isReachableActiveMeter[Instrument.BASS.index()][i] = true;
+        }
+
+        for (int i = 0; i < this.hasSqueezeAvailable.length; ++i) {
+            this.hasSqueezeAvailable[i] = false;
         }
     }
 
@@ -158,6 +164,7 @@ public class BeatInfo implements Cloneable {
 
     public void setReachableMeter(Instrument instrument,
                                   int meter) {
+        assert(meter > 0 || Instrument.DRUMS.equals(instrument));
         this.isReachableActiveMeter[instrument.index()][meter] = true;
     }
 
@@ -171,7 +178,11 @@ public class BeatInfo implements Cloneable {
     }
 
     public boolean hasSqueezeAvailable(Instrument instrument) {
-        return false;
+        return this.hasSqueezeAvailable[instrument.index()];
+    }
+
+    public void addSqueeze(Instrument instrument) {
+        this.hasSqueezeAvailable[instrument.index()] = true;
     }
 
     public boolean hasWhammy(Instrument instrument) {
@@ -440,147 +451,9 @@ public class BeatInfo implements Cloneable {
         return result;
     }
 
-    public void computeReachableStates(Collection< BandState > results) throws Exception {
-        // start with "no one active, everyone with current maximumOverdriveBar"
-        // this state is always theortically reachable simply by never
-        // activating
-        BandState firstBandState = new BandState();
-        for (int i = 0; i < Instrument.INSTRUMENT_COUNT.index(); ++i) {
-            firstBandState.setInstrumentInOverdrive(i, false);
-            firstBandState.setInstrumentMeter(i,this.maximumOverdriveBar[i]);
-        }
-        results.add(firstBandState);
-        
-        // toggle activations. Now we may have as many as 16 states. Some of
-        // these may be unreachable (e.g. near the end of verse three of
-        // "Where'd You Go" vocals must be inactive), but that's okay; the final
-        // forward walk will ignore these.
-
-        for (int i = 0; i < Instrument.INSTRUMENT_COUNT.index(); ++i) {
-            ArrayList< BandState > tmp = new ArrayList< BandState >(16);
-            for (BandState tmpState : results) {
-                if ((this.maximumOverdriveBar[i] >= SongInfo.OVERDRIVE_HALFBAR) &&
-                    this.canBeInOverdrive[i]) {
-                    // find the maximum active overdrive amount
-                    // usually OVERDRIVE_FULLBAR for guitar/bass
-
-                    BandState newState = (BandState) (tmpState.clone());
-                    byte activeMeter = this.findMaxmimumActiveMeter(i);
-                    newState.setInstrumentMeter(i, activeMeter);
-                    newState.activateInstrument(i);
-                    tmp.add(newState);
-                }
-            }
-            results.addAll(tmp);
-        }
-
-        // first the easy part: iterate over all possible amounts of overdrive
-        // for guitar and bass in [0,maximumOverdriveBar)
-        //
-        // technically, this will compute some unreachable states, (e.g. guitar
-        // with 23 beats if that amount of whammy is unattainable at certain
-        // times in the song. Guitar with 14 beats 1 beat after first possible
-        // activation, etc.), but that's okay ... the forward walk will prevent
-        // us from encountering those values since they won't be reachable when
-        // we start from the constrained space where no one has enough OD to
-        // activate.
-        {
-            ArrayList< BandState >  tmp = new ArrayList< BandState >(results.size());
-            for (byte i = (byte) (this.maximumOverdriveBar[Instrument.GUITAR.index()]-1); i >= 0; --i) {
-                for (BandState tmpState : results) {
-                    if (0 == i && tmpState.instrumentInOverdrive(Instrument.GUITAR)) {
-                        continue;
-                    }
-                    BandState newState = (BandState) (tmpState.clone());
-                    newState.setInstrumentMeter(Instrument.GUITAR.index(), i);
-                    tmp.add(newState);
-                }
-            }
-            results.addAll(tmp);
-        }
-
-        {
-            ArrayList< BandState >  tmp = new ArrayList< BandState >(results.size());
-            for (byte i = (byte) (this.maximumOverdriveBar[Instrument.BASS.index()]-1); i >= 0; --i) {
-                for (BandState tmpState : results) {
-                    if (0 == i && tmpState.instrumentInOverdrive(Instrument.BASS)) {
-                        continue;
-                    }
-                    BandState newState = (BandState) (tmpState.clone());
-                    newState.setInstrumentMeter(Instrument.BASS.index(), i);
-                    tmp.add(newState);
-                }
-            }
-            results.addAll(tmp);
-        }
-
-
-        // now possibly up to 16*65^2 = 67600 states
-
-        // now for vox and drums
-        // 
-        // for these instruments, we only want to add a state if we are certain
-        // it's actually possible to have that amount of OD
-        {
-            ArrayList< BandState >  tmp = new ArrayList< BandState >(results.size());
-            for (byte i = (byte) (this.maximumOverdriveBar[Instrument.DRUMS.index()]-1); i >= 0; --i) {
-
-                for (BandState tmpState : results) {
-                    // if the drums are in overdrive, skip meters that are
-                    // unreachable
-                    if (tmpState.instrumentInOverdrive(Instrument.DRUMS)) {
-                        if (!this.isReachableActiveMeter(Instrument.DRUMS, i)) {
-                            continue;
-                        }
-                    } else {
-                    // if we're NOT in overdrive, skip meters that aren't
-                    // multiples of a phrase
-                        if (0 != (i % SongInfo.OVERDRIVE_PHRASE)) {
-                            continue;
-                        }
-                    }
-                    BandState newState = (BandState) (tmpState.clone());
-                    newState.setInstrumentMeter(Instrument.DRUMS.index(), i);
-                    tmp.add(newState);
-                }
-            }
-            results.addAll(tmp);
-        }
-
-        {
-            ArrayList< BandState >  tmp = new ArrayList< BandState >(results.size());
-            for (byte i = (byte) (this.maximumOverdriveBar[Instrument.VOCALS.index()]-1); i >= 0; --i) {
-                for (BandState tmpState : results) {
-                    if (tmpState.instrumentInOverdrive(Instrument.VOCALS)) {
-                        if (!this.isReachableActiveMeter(Instrument.VOCALS, i)) {
-                            continue;
-                        }
-                    } else {
-                        if (0 != (i % SongInfo.OVERDRIVE_PHRASE)) {
-
-                            continue;
-                        }
-                    }
-
-                    BandState newState = (BandState) (tmpState.clone());
-                    newState.setInstrumentMeter(Instrument.VOCALS.index(), i);
-                    tmp.add(newState);
-                }
-            }
-            results.addAll(tmp);
-        }
-
-        // unclear on how many states we are talking about here. For drums the
-        // typical measure will have about 9 reachable states (off-beat
-        // activations will make this number larger). For vocals, verses and
-        // chorus are usually unable to activate more than half the time. But
-        // sometimes there are long sections with no singing or taps. Assume it
-        // averages out to 33 vocal states, we're probably near 20M states
-        // per beat
-    }
 
     public void computeReachableNextStates(BandState currentBandState, Collection< BandState > results) throws Exception {
-        //
+        // I actually need the next beat ...
         BandState initialBandState = (BandState) currentBandState.clone();
         boolean canSqueezeDrums = initialBandState.canSqueeze(Instrument.DRUMS, this);
 
@@ -656,14 +529,14 @@ public class BeatInfo implements Cloneable {
 
 
         // advance all the instruments that are in overdrive (affects
-        // activation)
+        // activation and truncates overdrive)
         {
             ArrayList< BandState > tmp = new ArrayList< BandState >(results.size());
 
             for (BandState tmpState : results) {
 
                 if (canSqueezeDrums) {
-                    System.out.println("squeezing drums");
+                    //System.out.println("squeezing drums");
                     BandState squeezedBandState = (BandState) tmpState.clone();
                     squeezedBandState.advanceActivatedInstruments(this, true);
                     tmp.add(squeezedBandState);
@@ -794,6 +667,152 @@ public class BeatInfo implements Cloneable {
         return stateCount;
     }
 
+    public int computeReachableStates(IntArrayList results) throws Exception {
+        // start with "no one active, everyone with current maximumOverdriveBar"
+        // this state is always theortically reachable simply by never
+        // activating
+        int stateCount = 0;
+
+        BandState inPlaceState = new BandState();
+        for (int i = 0; i < Instrument.INSTRUMENT_COUNT.index(); ++i) {
+            inPlaceState.setInstrumentInOverdrive(i, false);
+            inPlaceState.setInstrumentMeter(i,this.maximumOverdriveBar[i]);
+        }
+        results.add(inPlaceState.serializedData());
+        ++stateCount;
+
+        
+        // toggle activations. Now we may have as many as 16 states. Some of
+        // these may be unreachable (e.g. near the end of verse three of
+        // "Where'd You Go" vocals must be inactive), but that's okay; the final
+        // forward walk will ignore these.
+
+        for (int i = 0; i < Instrument.INSTRUMENT_COUNT.index(); ++i) {
+            if ((this.maximumOverdriveBar[i] >= SongInfo.OVERDRIVE_HALFBAR) &&
+                this.canBeInOverdrive[i]) {
+                int currentStateCount = stateCount;
+                for (int j = 0; j < currentStateCount; ++j) {
+                    // find the maximum active overdrive amount
+                    // usually OVERDRIVE_FULLBAR for guitar/bass
+
+                    inPlaceState.setBits(results.getInt(j));
+                    byte activeMeter = this.findMaxmimumActiveMeter(i);
+                    inPlaceState.setInstrumentMeter(i, activeMeter);
+                    inPlaceState.activateInstrument(i);
+                    results.add(inPlaceState.serializedData());
+                    ++stateCount;
+                }
+            }
+        }
+
+        // first the easy part: iterate over all possible amounts of overdrive
+        // for guitar and bass in [0,maximumOverdriveBar)
+        //
+        // technically, this will compute some unreachable states, (e.g. guitar
+        // with 23 beats if that amount of whammy is unattainable at certain
+        // times in the song. Guitar with 14 beats 1 beat after first possible
+        // activation, etc.), but that's okay ... the forward walk will prevent
+        // us from encountering those values since they won't be reachable when
+        // we start from the constrained space where no one has enough OD to
+        // activate.
+        int currentStateCount = stateCount;
+        int newStates = 0;
+        for (byte i = (byte) (this.maximumOverdriveBar[Instrument.GUITAR.index()]-1); i >= 0; --i) {
+            for (int j = 0; j < currentStateCount; ++j) {
+                inPlaceState.setBits(results.getInt(j));
+                if (0 == i && inPlaceState.instrumentInOverdrive(Instrument.GUITAR)) {
+                    continue;
+                }
+                inPlaceState.setInstrumentMeter(Instrument.GUITAR.index(), i);
+                results.add(inPlaceState.serializedData());
+                ++stateCount;
+                ++newStates;
+            }
+        }
+
+        currentStateCount = stateCount;
+        newStates = 0;
+        for (byte i = (byte) (this.maximumOverdriveBar[Instrument.BASS.index()]-1); i >= 0; --i) {
+            for (int j = 0; j < currentStateCount; ++j) {
+                inPlaceState.setBits(results.getInt(j));
+                if (0 == i && inPlaceState.instrumentInOverdrive(Instrument.BASS)) {
+                    continue;
+                }
+                inPlaceState.setInstrumentMeter(Instrument.BASS.index(), i);
+                results.add(inPlaceState.serializedData());
+                ++stateCount;
+                ++newStates;
+            }
+        }
+
+
+        // now possibly up to 16*65^2 = 67600 states
+
+        // now for vox and drums
+        // 
+        // for these instruments, we only want to add a state if we are certain
+        // it's actually possible to have that amount of OD
+        currentStateCount = stateCount;
+        newStates = 0;
+        for (byte i = (byte) (this.maximumOverdriveBar[Instrument.DRUMS.index()]-1); i >= 0; --i) {
+            for (int j = 0; j < currentStateCount; ++j) {
+                inPlaceState.setBits(results.getInt(j));
+                // if the drums are in overdrive, skip meters that are
+                // unreachable
+                if (inPlaceState.instrumentInOverdrive(Instrument.DRUMS)) {
+                    if (!this.isReachableActiveMeter(Instrument.DRUMS, i)) {
+                        continue;
+                    }
+                } else {
+                // if we're NOT in overdrive, skip meters that aren't
+                // multiples of a phrase
+                    if (0 != (i % SongInfo.OVERDRIVE_PHRASE)) {
+                        continue;
+                    }
+                }
+                inPlaceState.setInstrumentMeter(Instrument.DRUMS.index(), i);
+                results.add(inPlaceState.serializedData());
+                ++stateCount;
+                ++newStates;
+            }
+        }
+
+        currentStateCount = stateCount;
+        newStates = 0;
+        for (byte i = (byte) (this.maximumOverdriveBar[Instrument.VOCALS.index()]-1); i >= 0; --i) {
+            for (int j = 0; j < currentStateCount; ++j) {
+                inPlaceState.setBits(results.getInt(j));
+                // if the vocals are in overdrive, skip meters that are
+                // unreachable
+                if (inPlaceState.instrumentInOverdrive(Instrument.VOCALS)) {
+                    if (!this.isReachableActiveMeter(Instrument.VOCALS, i)) {
+                        continue;
+                    }
+                } else {
+                // if we're NOT in overdrive, skip meters that aren't
+                // multiples of a phrase
+                    if (0 != (i % SongInfo.OVERDRIVE_PHRASE)) {
+                        continue;
+                    }
+                }
+                inPlaceState.setInstrumentMeter(Instrument.VOCALS.index(), i);
+                results.add(inPlaceState.serializedData());
+                ++stateCount;
+                ++newStates;
+            }
+        }
+
+        // unclear on how many states we are talking about here. For drums the
+        // typical measure will have about 9 reachable states (off-beat
+        // activations will make this number larger). For vocals, verses and
+        // chorus are usually unable to activate more than half the time. But
+        // sometimes there are long sections with no singing or taps. Assume it
+        // averages out to 33 vocal states, we're probably near 20M states
+        // per beat
+
+        return stateCount;
+    }
+
     public boolean hasLastBeatOfUnisonBonus() {
         return this.hasLastBeatOfUnisonBonus;
     }
@@ -854,12 +873,20 @@ public class BeatInfo implements Cloneable {
         result.append(this.instrumentCanActivate[Instrument.VOCALS.index()] ? "Y" : "N");
 
         result.append(" Reachable Meters:\n  Drums:");
-        for (int i = 0; i < this.isReachableActiveMeter[Instrument.DRUMS.index()].length; ++i) {
+        result.append(this.isReachableActiveMeter[Instrument.DRUMS.index()][0] ?  "Y" : "N");
+        for (int i = 1; i < this.isReachableActiveMeter[Instrument.DRUMS.index()].length; ++i) {
+            if (1 == i % (SongInfo.OVERDRIVE_PHRASE)) {
+                result.append(" ");
+            }
             result.append(this.isReachableActiveMeter[Instrument.DRUMS.index()][i] ?  "Y" : "N");
         }
 
         result.append("\n  Vocal:");
-        for (int i = 0; i < this.isReachableActiveMeter[Instrument.VOCALS.index()].length; ++i) {
+        result.append(this.isReachableActiveMeter[Instrument.VOCALS.index()][0] ?  "Y" : "N");
+        for (int i = 1; i < this.isReachableActiveMeter[Instrument.VOCALS.index()].length; ++i) {
+            if (1 == i % (SongInfo.OVERDRIVE_PHRASE)) {
+                result.append(" ");
+            }
             result.append(this.isReachableActiveMeter[Instrument.VOCALS.index()][i] ?  "Y" : "N");
         }
 

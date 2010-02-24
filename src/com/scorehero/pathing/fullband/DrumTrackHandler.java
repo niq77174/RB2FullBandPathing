@@ -67,6 +67,7 @@ public class DrumTrackHandler extends TrackHandler {
                 BeatInfo currentBeat = result.getNearestBeat(ticks);
                 int chordScore = multiplier * TrackHandler.BASE_SCORE;
                 currentBeat.addScore(this.instrument, chordScore);
+                //currentBeat.addScore(this.instrument, ticks, chordScore);
                 lastNoteTicks = ticks;
 
                 if (inOverdrive) {
@@ -93,6 +94,10 @@ public class DrumTrackHandler extends TrackHandler {
                     currentBeat.setOverdrivePhraseEnd(instrument, true);
                     BeatInfo lastChordBeat = result.getNearestBeat(lastNoteTicks);
                     lastChordBeat.setLastOverdriveNote(instrument, true);
+                    if (lastChordBeat.startTicks() == lastNoteTicks) {
+                        BeatInfo squeezeBeat = result.beats().get(lastChordBeat.beatNumber()-1);
+                        squeezeBeat.addSqueeze(Instrument.DRUMS);
+                    }
                     inOverdrive = false;
                     continue;
                 }

@@ -21,6 +21,8 @@ import java.io.IOException;
 import java.io.Writer;
 import java.io.FileWriter;
 import java.io.BufferedWriter;
+import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.shorts.Short2IntMap;
 import it.unimi.dsi.fastutil.shorts.Short2ObjectMap;
 import it.unimi.dsi.fastutil.shorts.Short2ObjectRBTreeMap;
@@ -149,6 +151,41 @@ public class MultiLayeredScoredBeat extends ScoredBeat {
         return result;
     }
 
+    public static ScoredBeat findScores(String title, int beatNumber, Collection< BandState > states) throws IOException {
+        IntSet toAdd = new IntOpenHashSet(states.size());
+        for (BandState bandState : states) {
+            toAdd.add(bandState.serializedData());
+        }
+
+        final String fileName = getFileName(title, beatNumber);
+        File theFile = new File(fileName);
+        if (!theFile.exists()) {
+            throw new IOException("can't find " + theFile);
+        }
+
+        long numElements = theFile.length() / 8L;
+
+        MultiLayeredScoredBeat result = new MultiLayeredScoredBeat();
+        InputStream stream = new BufferedInputStream(new FileInputStream(theFile));
+        BandState currentState = new BandState();
+        try {
+            byte[] buf = new byte[8];
+            for (long i = 0; i < numElements; ++i) {
+                stream.read(buf);
+                final int stateBits = (Util.toInteger(buf, 0));
+                final int score = Util.toInteger(buf, 4);
+                if (toAdd.contains(stateBits)) {
+                    currentState.setBits(stateBits);
+                    result.addScore(currentState, score);
+                }
+            }
+        } finally {
+            stream.close();
+        }
+        return result;
+
+    }
+
     private final static String STORAGE_ROOT = "/home/niq/.big/handrolled";
     private final static String FILE_PREFIX = "beat_";
 
@@ -172,6 +209,8 @@ public class MultiLayeredScoredBeat extends ScoredBeat {
         }
 
         result.append(beatNumber);
+        result.append("_");
+        result.append(SongInfo.SUBBEATS_PER_BEAT);
         //System.out.println("Searching for " + result);
         return result.toString();
     }

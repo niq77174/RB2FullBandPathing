@@ -64,7 +64,7 @@ public class NoTempCacheOptimizer {
         ScoredBeat result = null;
             //new BDBScoredBeat(title, beatInfo.beatNumber(), false);
         ArrayList< BandState > bandStates =  new ArrayList< BandState>();
-        beatInfo.computeReachableStates(bandStates);
+        //beatInfo.computeReachableStates(bandStates);
         System.out.println("Optimizing " + beatInfo);
         System.out.println("Current beat state count: " + bandStates.size());
         int nextBeatStateCount = 0;

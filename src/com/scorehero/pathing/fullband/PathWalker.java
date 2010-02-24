@@ -17,12 +17,16 @@ public class PathWalker {
         int score = firstBeat.getScore(currentState);
 
         for (int i = 0; i < songInfo.beats().size()-1; ++i) {
+            if (PathWalker.debugOutput) {
+                System.err.println("At beat " + i + " searching for next state");
+            }
             ArrayList< BandState > nextStates = new ArrayList< BandState >();
             BeatInfo currentBeat = songInfo.beats().get(i);
             // compute all reachable next states for current state S
             currentBeat.computeReachableNextStates(currentState, nextStates);
 
-            ScoredBeat nextBeat = MultiLayeredScoredBeat.fromDisk(songInfo.title(), i+1);
+            //ScoredBeat nextBeat = MultiLayeredScoredBeat.fromDisk(songInfo.title(), i+1);
+            ScoredBeat nextBeat = MultiLayeredScoredBeat.findScores(songInfo.title(), i+1, nextStates);
             for (BandState nextState : nextStates) {
 
                 // play through the beat
@@ -51,11 +55,14 @@ public class PathWalker {
         "bass"
     };
 
+    public static void debugThis() {
+    }
+
     public static void main(String[] args) throws Exception {
-        PathWalker.debugOutput = true;
 
         SongInfo song = SongInfo.fromMid2TxtFile(args[0]);
         boolean verbose = args.length > 1 && "--verbose".equals(args[1]);
+        PathWalker.debugOutput = verbose;
         ArrayList< BandState > path = new ArrayList< BandState >(song.beats().size());
         PathWalker pathWalker = new PathWalker();
         pathWalker.findPath(song, path);
@@ -87,6 +94,7 @@ public class PathWalker {
 
         System.out.println("user niq24601 PASSWORD");
         System.out.println("option ppqn 30");
+        System.out.println("option shift 30");
         System.out.println("color textblack 0 0 0");
         System.out.println("color odyellow 255 240 192");
         
@@ -94,28 +102,68 @@ public class PathWalker {
         ArrayList< BeatInfo > beats = song.beats();
         int currentMeasure = 0;
         score = 0;
-        int measureScore = 0;
+        int drumSkips = 0;
+        int vocalSkips = 0;
         currentState = path.get(0);
 
-        //StringBuilder drumPath = new StringBuilder("string -30 40 Drum Path: ")
+        System.out.println("string 5 textblack 800 45 OD phrases in");
+        System.out.println("string 5 odyellow 930 45 Yellow");
+        StringBuilder drumPath = new StringBuilder("string 5 textblack 0 60 Drum Path: ");
+        StringBuilder vocalPath = new StringBuilder("string 5 textblack 0 75 Vocal Path: ");
+
         for (int i = 0; i < path.size()-1; ++i) {
             BandState nextState = path.get(i+1);
             BeatInfo currentBeat = beats.get(i);
 
             if (currentBeat.isDownBeat()) {
                 if (currentMeasure > 0) {
-                    System.out.println("measurescore drums " + currentMeasure + " " + measureScore);
                     System.out.println("totalscore drums " + currentMeasure + " " + score);
                 }
-                measureScore = 0;
                 ++currentMeasure;
             }
+
             beatScore = currentBeat.score(currentState, nextState);
-            measureScore += beatScore;
             score += beatScore;
 
 
             for (int j = 0; j < Instrument.INSTRUMENT_COUNT.index(); ++j) {
+                if (j == Instrument.DRUMS.index()) {
+                    if (currentBeat.instrumentCanActivate(j, currentState)) {
+                        if (!currentState.instrumentInOverdrive(j) && nextState.instrumentInOverdrive(j)) {
+                            drumPath.append("" + drumSkips + "-");
+                            drumSkips = 0;
+                        }
+
+                        if (!currentState.instrumentInOverdrive(j) && !nextState.instrumentInOverdrive(j)) {
+                            ++drumSkips;
+                        }
+                    }
+                }
+
+                if (j == Instrument.VOCALS.index()) {
+                    if (currentBeat.instrumentCanActivate(j, currentState)) {
+                        if (!currentState.instrumentInOverdrive(j) && nextState.instrumentInOverdrive(j)) {
+                            final int phraseCount = currentState.getInstrumentMeter(j) / SongInfo.OVERDRIVE_PHRASE;
+                            vocalPath.append("" + phraseCount + "/sk" + vocalSkips + "-");
+                            vocalSkips = 0;
+                        }
+                    }
+                    if (!nextState.instrumentInOverdrive(j)) {
+                        if ((i + 1) < beats.size()) {
+                            BeatInfo nextBeat = beats.get(i + 1);
+                            if (currentBeat.instrumentCanActivate(j, nextState) &&
+                                !nextBeat.instrumentCanActivate(j, nextState)) {
+                                ++vocalSkips;
+                            }
+                        }
+
+                        if (nextState.getInstrumentMeter(j) > currentState.getInstrumentMeter(j)) {
+                            vocalSkips = 0;
+                        }
+                    }
+
+                }
+
                 if (!currentState.instrumentInOverdrive(j) && nextState.instrumentInOverdrive(j)) {
                     startTicks[j] = currentBeat.startTicks();
                 }
@@ -134,6 +182,13 @@ public class PathWalker {
 
             currentState = nextState;
         }
+
+        score += Bonuses.getBonus(song.title());
+        System.out.println("string 5 textblack 0 45 Estimated maximum score: " + score);
+        String drumPathString = drumPath.toString(); 
+        System.out.println(drumPathString.substring(0, drumPathString.length()-1));
+        String vocalPathString = vocalPath.toString(); 
+        System.out.println(vocalPathString.substring(0, vocalPathString.length()-1));
 
         /*
         int songLen = path.size()-1;
